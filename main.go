@@ -10,38 +10,35 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
+	"os"
+	"runtime"
 	"strings"
 	"time"
 
 	"github.com/google/gopacket"
-	"github.com/google/gopacket/examples/util"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-// from https://github.com/google/gopacket/blob/master/examples/httpassembly/main.go
-var iface = flag.String("i", "lo", "Interface to get packets from")
-var fname = flag.String("r", "", "Filename to read from, overrides -i")
-var snaplen = flag.Int("s", 65535, "SnapLen for pcap packet capture")
-var filter = flag.String("f", "tcp and dst port 8080", "BPF filter for pcap")
-var logAllPackets = flag.Bool("v", false, "Logs every packet in great detail")
-
 // Build a simple HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
 
 // httpStreamFactory implements tcpassembly.StreamFactory
-type httpStreamFactory struct{}
+type httpStreamFactory struct {
+	port int
+}
 
 // httpStream will handle the actual decoding of http requests.
 type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
+	port           string
 }
 
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
 	hs := &httpStream{
+		port:      fmt.Sprintf("%d", h.port),
 		net:       net,
 		transport: transport,
 		r:         tcpreader.NewReaderStream(),
@@ -52,12 +49,21 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 	return &hs.r
 }
 
-const (
-	defaultMaxMemory = 32 << 20 // 32 MB
-)
+const defaultMaxMemory = 32 << 20 // 32 MB
 
 func (h *httpStream) run() {
 	buf := bufio.NewReader(&h.r)
+	src := fmt.Sprintf("%v", h.transport.Src())
+	log.Printf("[%s]src:%s\n", Gid(), src)
+
+	if src == h.port {
+		h.resolveResponse(buf)
+	} else {
+		h.resolveRequest(buf)
+	}
+}
+
+func (h *httpStream) resolveRequest(buf *bufio.Reader) {
 	for {
 		req, err := http.ReadRequest(buf)
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
@@ -65,32 +71,124 @@ func (h *httpStream) run() {
 			return
 		} else if err != nil {
 			log.Println("Error reading stream", h.net, h.transport, ":", err)
-		} else {
-			log.Printf("Received from stream [%s] [%s]\n", h.net, h.transport)
-			printReq(req)
+			continue
+		}
+
+		log.Printf("[%s]Received from stream [%s] [%s]\n", Gid(), h.net, h.transport)
+		printReq(req)
+	}
+}
+
+func (h *httpStream) resolveResponse(buf *bufio.Reader) {
+	for {
+		resp, err := http.ReadResponse(buf, nil)
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return
+		} else if err != nil {
+			continue
+		}
+
+		log.Printf("[%s]Received from stream [%s] [%s]\n", Gid(), h.net, h.transport)
+		printResp(resp)
+	}
+}
+
+func main() {
+	var iface = flag.String("i", "lo", "Interface to get packets or filename to read")
+	var port = flag.Int("p", 8080, "tcp port")
+	var logAllPackets = flag.Bool("v", false, "Logs every packet in great detail")
+	flag.Parse()
+
+	var handle *pcap.Handle
+	var err error
+
+	// Set up pcap packet capture
+	name := *iface
+	if v, e := os.Stat(name); e == nil && !v.IsDir() {
+		log.Printf("Reading from pcap dump %q", name)
+		handle, err = pcap.OpenOffline(name)
+	} else {
+		log.Printf("Starting capture on interface %q", name)
+		handle, err = pcap.OpenLive(name, 65535, false, pcap.BlockForever)
+	}
+
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	filter := fmt.Sprintf("tcp and port %d", *port)
+	if err := handle.SetBPFFilter(filter); err != nil {
+		log.Fatal(err)
+	}
+
+	// Set up assembly
+	streamFactory := &httpStreamFactory{port: *port}
+	streamPool := tcpassembly.NewStreamPool(streamFactory)
+	assembler := tcpassembly.NewAssembler(streamPool)
+
+	log.Println("reading in packets")
+	// Read in packets, pass to assembler.
+	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
+	ticker := time.Tick(time.Minute)
+	for {
+		select {
+		case p := <-packets:
+			// A nil packet indicates the end of a pcap file.
+			if p == nil {
+				return
+			}
+			if *logAllPackets {
+				log.Println(p)
+			}
+			if p.NetworkLayer() == nil || p.TransportLayer() == nil || p.TransportLayer().LayerType() != layers.LayerTypeTCP {
+				log.Println("Unusable packet")
+				continue
+			}
+			tcp := p.TransportLayer().(*layers.TCP)
+			assembler.AssembleWithTimestamp(p.NetworkLayer().NetworkFlow(), tcp, p.Metadata().Timestamp)
+
+		case <-ticker:
+			// Every minute, flush connections that haven't seen activity in the past 2 minutes.
+			assembler.FlushOlderThan(time.Now().Add(time.Minute * -2))
 		}
 	}
 }
 
 func printReq(req *http.Request) {
-	// https://github.com/asmcos/sniffer/blob/master/sniffer.go
 	req.ParseMultipartForm(defaultMaxMemory)
 	defer req.Body.Close()
 
-	r, ok := decompressBody(req.Header, req.Body)
-	if ok {
-		defer r.Close()
+	r, err := decompressBody(req.Header, req.Body)
+	if err != nil {
+		log.Printf("decompressBody error: %v\n", err)
+		return
 	}
 
-	contentType := req.Header.Get("Content-Type")
-	log.Printf("contentType:%s\n", contentType)
 	log.Printf("request:%s\n", printRequest(req))
-	if contains(contentType, "application/json", "application/xml", "text/html") {
+	ct := req.Header.Get("Content-Type")
+	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		bodyBytes, err := ioutil.ReadAll(r)
 		log.Printf("body size:%d, body:%s, error:%v\n", len(bodyBytes), bodyBytes, err)
 	} else {
-		bodyLen := tcpreader.DiscardBytesToEOF(r)
-		log.Printf("body size:%d\n", bodyLen)
+		log.Printf("body size:%d\n", tcpreader.DiscardBytesToEOF(r))
+	}
+}
+
+func printResp(resp *http.Response) {
+	defer resp.Body.Close()
+	r, err := decompressBody(resp.Header, resp.Body)
+	if err != nil {
+		log.Printf("decompressBody error: %v\n", err)
+		return
+	}
+
+	log.Printf("response:%s\n", printResponse(resp))
+	ct := resp.Header.Get("Content-Type")
+	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
+		bodyBytes, err := ioutil.ReadAll(r)
+		log.Printf("body size:%d, body:%s, error:%v\n", len(bodyBytes), bodyBytes, err)
+	} else {
+		log.Printf("body size:%d\n", tcpreader.DiscardBytesToEOF(r))
 	}
 }
 
@@ -104,129 +202,61 @@ func contains(s string, subs ...string) bool {
 }
 
 func printRequest(req *http.Request) string {
-	logbuf := fmt.Sprintf("\n")
-	logbuf += fmt.Sprintf("Host %s\n", req.Host)
-	logbuf += fmt.Sprintf("%s %s %s\n", req.Method, req.RequestURI, req.Proto)
-	logbuf += printHeader(req.Header)
-	logbuf += printForm(req.Form)
-	logbuf += printForm(req.PostForm)
+	s := "\n"
+	s += fmt.Sprintf("HOST %s\n", req.Host)
+	s += fmt.Sprintf("%s %s %s\n", req.Method, req.RequestURI, req.Proto)
+	s += printMapStrings(req.Header)
+	s += printMapStrings(req.Form)
+	s += printMapStrings(req.PostForm)
 	if req.MultipartForm != nil {
-		logbuf += printForm(req.MultipartForm.Value)
+		s += printMapStrings(req.MultipartForm.Value)
 	}
-	return logbuf
+	return s
 }
 
-func printHeader(h http.Header) string {
-	var logbuf string
-
-	for k, v := range h {
-		if len(v) == 1 {
-			logbuf += fmt.Sprintf("%s: %s\n", k, v[0])
-		} else {
-			logbuf += fmt.Sprintf("%s: %s\n", k, v)
-		}
-	}
-	return logbuf
+func printResponse(resp *http.Response) string {
+	s := "\n"
+	s += fmt.Sprintf("%s %s\n", resp.Proto, resp.Status)
+	s += printMapStrings(resp.Header)
+	return s
 }
 
-// url.Values map[string][]string
-func printForm(v url.Values) string {
-	if len(v) == 0 {
+func printMapStrings(m map[string][]string) string {
+	if len(m) == 0 {
 		return ""
 	}
-	var logbuf string
 
-	logbuf += fmt.Sprint("\n**************\n")
-	for k, data := range v {
-		if len(data) == 1 {
-			logbuf += fmt.Sprintf("%s: %s\n", k, data[0])
+	var s string
+	for k, v := range m {
+		if len(v) == 1 {
+			s += fmt.Sprintf("%s: %s\n", k, v[0])
 		} else {
-			logbuf += fmt.Sprintf("%s: %s\n", k, data)
+			s += fmt.Sprintf("%s: %s\n", k, v)
 		}
 	}
-	logbuf += fmt.Sprint("**************\n")
 
-	return logbuf
+	return s
 }
 
-func decompressBody(header http.Header, r io.ReadCloser) (io.ReadCloser, bool) {
-	contentEncoding := header.Get("Content-Encoding")
-	if contentEncoding == "" {
-		return r, false
+func decompressBody(header http.Header, r io.ReadCloser) (io.ReadCloser, error) {
+	ce := header.Get("Content-Encoding")
+	if ce == "" {
+		return r, nil
 	}
 
-	var nr io.ReadCloser
-	var err error
-	if strings.Contains(contentEncoding, "gzip") {
-		nr, err := gzip.NewReader(r)
-		if err != nil {
-			return r, false
-		}
-		return nr, true
+	if strings.Contains(ce, "gzip") {
+		return gzip.NewReader(r)
 	}
 
-	if strings.Contains(contentEncoding, "deflate") {
-		nr, err = zlib.NewReader(r)
-		if err != nil {
-			return r, false
-		}
-		return nr, true
+	if strings.Contains(ce, "deflate") {
+		return zlib.NewReader(r)
 	}
 
-	return r, false
+	return r, nil
 }
 
-func main() {
-	defer util.Run()()
-	var handle *pcap.Handle
-	var err error
-
-	// Set up pcap packet capture
-	if *fname != "" {
-		log.Printf("Reading from pcap dump %q", *fname)
-		handle, err = pcap.OpenOffline(*fname)
-	} else {
-		log.Printf("Starting capture on interface %q", *iface)
-		handle, err = pcap.OpenLive(*iface, int32(*snaplen), true, pcap.BlockForever)
-	}
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	if err := handle.SetBPFFilter(*filter); err != nil {
-		log.Fatal(err)
-	}
-
-	// Set up assembly
-	streamFactory := &httpStreamFactory{}
-	streamPool := tcpassembly.NewStreamPool(streamFactory)
-	assembler := tcpassembly.NewAssembler(streamPool)
-
-	log.Println("reading in packets")
-	// Read in packets, pass to assembler.
-	packetSource := gopacket.NewPacketSource(handle, handle.LinkType())
-	packets := packetSource.Packets()
-	ticker := time.Tick(time.Minute)
-	for {
-		select {
-		case packet := <-packets:
-			// A nil packet indicates the end of a pcap file.
-			if packet == nil {
-				return
-			}
-			if *logAllPackets {
-				log.Println(packet)
-			}
-			if packet.NetworkLayer() == nil || packet.TransportLayer() == nil || packet.TransportLayer().LayerType() != layers.LayerTypeTCP {
-				log.Println("Unusable packet")
-				continue
-			}
-			tcp := packet.TransportLayer().(*layers.TCP)
-			assembler.AssembleWithTimestamp(packet.NetworkLayer().NetworkFlow(), tcp, packet.Metadata().Timestamp)
-
-		case <-ticker:
-			// Every minute, flush connections that haven't seen activity in the past 2 minutes.
-			assembler.FlushOlderThan(time.Now().Add(time.Minute * -2))
-		}
-	}
+func Gid() string {
+	var buf [64]byte
+	n := runtime.Stack(buf[:], false)
+	return strings.Fields(strings.TrimPrefix(string(buf[:n]), "goroutine "))[0]
 }
