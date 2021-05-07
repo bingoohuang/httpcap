@@ -22,6 +22,7 @@ import (
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
+// from https://github.com/google/gopacket/blob/master/examples/httpassembly/main.go
 var iface = flag.String("i", "lo", "Interface to get packets from")
 var fname = flag.String("r", "", "Filename to read from, overrides -i")
 var snaplen = flag.Int("s", 65535, "SnapLen for pcap packet capture")
