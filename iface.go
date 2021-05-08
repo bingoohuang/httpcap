@@ -21,7 +21,7 @@ func ListIfaces() map[string]Iface {
 		}
 		m[f.Name] = Iface{
 			Name:     f.Name,
-			Loopback: f.Flags&net.FlagLoopback == 1,
+			Loopback: f.Flags&net.FlagLoopback == net.FlagLoopback,
 		}
 	}
 
