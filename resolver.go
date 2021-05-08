@@ -36,18 +36,18 @@ func (r Req) Process() {
 	req := r.Val
 	req.ParseMultipartForm(defaultMaxMemory)
 
-	log.Printf("[%s]request:%s\n", Gid(), printRequest(req))
+	log.Printf("request:%s\n", printRequest(req))
 
 	body, bodyLen, err := parseBody(req.Header, req.Body)
 	if r.relayer(req.Method, req.RequestURI, req.Header, body) {
-		log.Printf("[%s]body size:%d, body:%s, error:%v\n", Gid(), bodyLen, body, err)
+		log.Printf("body size:%d, body:%s, error:%v\n", bodyLen, body, err)
 	}
 }
 
 func (r Rsp) Process() {
-	log.Printf("[%s]response:%s\n", Gid(), printResponse(r.Val))
+	log.Printf("response:%s\n", printResponse(r.Val))
 	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body)
-	log.Printf("[%s]body size:%d, body:%s, error:%v\n", Gid(), bodyLen, body, err)
+	log.Printf("body size:%d, body:%s, error:%v\n", bodyLen, body, err)
 }
 
 func (r *ReqStreamResolver) Read() (Packet, error) {
