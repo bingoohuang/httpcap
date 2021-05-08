@@ -24,7 +24,7 @@ import (
 
 // Build a simple HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
 
-// httpStreamFactory implements tcpassembly.StreamFactory
+// httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
 	port int
 }
@@ -54,50 +54,39 @@ const defaultMaxMemory = 32 << 20 // 32 MB
 func (h *httpStream) run() {
 	buf := bufio.NewReader(&h.r)
 	src := fmt.Sprintf("%v", h.transport.Src())
-	log.Printf("[%s]src:%s\n", Gid(), src)
+	log.Printf("[%s]src:%s", Gid(), src)
 
+	var resolver StreamResolver
 	if src == h.port {
-		h.resolveResponse(buf)
+		resolver = &RspStreamResolver{buf: buf}
 	} else {
-		h.resolveRequest(buf)
+		resolver = &ReqStreamResolver{buf: buf}
 	}
-}
 
-func (h *httpStream) resolveRequest(buf *bufio.Reader) {
 	for {
-		req, err := http.ReadRequest(buf)
+		log.Printf("[%s]Start to  [%s]:[%s]", Gid(), h.net, h.transport)
+		r, err := resolver.Read()
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			// We must read until we see an EOF... very important!
-			return
+			log.Printf("[%s]EOF [%s]:[%s]", Gid(), h.net, h.transport)
+			return // We must read until we see an EOF... very important!
 		} else if err != nil {
-			log.Println("Error reading stream", h.net, h.transport, ":", err)
+			log.Printf("[%s]Error reading stream [%s]:[%s], error: %v", Gid(), h.net, h.transport, err)
 			continue
 		}
 
-		log.Printf("[%s]Received from stream [%s] [%s]\n", Gid(), h.net, h.transport)
-		printReq(req)
+		log.Printf("[%s]Received from stream [%s]:[%s]", Gid(), h.net, h.transport)
+		r.Print()
 	}
-}
 
-func (h *httpStream) resolveResponse(buf *bufio.Reader) {
-	for {
-		resp, err := http.ReadResponse(buf, nil)
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			return
-		} else if err != nil {
-			continue
-		}
-
-		log.Printf("[%s]Received from stream [%s] [%s]\n", Gid(), h.net, h.transport)
-		printResp(resp)
-	}
 }
 
 func main() {
-	var iface = flag.String("i", "lo", "Interface to get packets or filename to read")
-	var port = flag.Int("p", 8080, "tcp port")
-	var logAllPackets = flag.Bool("v", false, "Logs every packet in great detail")
-	flag.Parse()
+	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	var iface = f.String("i", "lo", "Interface to get packets or filename to read")
+	var port = f.Int("p", 8080, "tcp port")
+	var logAllPackets = f.Bool("v", false, "Logs every packet in great detail")
+	// Ignore errors; f is set for ExitOnError.
+	_ = f.Parse(os.Args[1:])
 
 	var handle *pcap.Handle
 	var err error
@@ -154,36 +143,57 @@ func main() {
 	}
 }
 
-func printReq(req *http.Request) {
-	req.ParseMultipartForm(defaultMaxMemory)
-	defer req.Body.Close()
-
-	r, err := decompressBody(req.Header, req.Body)
-	if err != nil {
-		log.Printf("decompressBody error: %v\n", err)
-		return
-	}
-
-	log.Printf("request:%s\n", printRequest(req))
-	ct := req.Header.Get("Content-Type")
-	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
-		bodyBytes, err := ioutil.ReadAll(r)
-		log.Printf("body size:%d, body:%s, error:%v\n", len(bodyBytes), bodyBytes, err)
-	} else {
-		log.Printf("body size:%d\n", tcpreader.DiscardBytesToEOF(r))
-	}
+type Packet interface {
+	Print()
 }
 
-func printResp(resp *http.Response) {
-	defer resp.Body.Close()
-	r, err := decompressBody(resp.Header, resp.Body)
+type StreamResolver interface {
+	Read() (Packet, error)
+}
+
+type ReqStreamResolver struct{ buf *bufio.Reader }
+type RspStreamResolver struct{ buf *bufio.Reader }
+type Req struct{ Val *http.Request }
+type Rsp struct{ Val *http.Response }
+
+func (r Req) Print() {
+	r.Val.ParseMultipartForm(defaultMaxMemory)
+
+	log.Printf("request:%s\n", printRequest(r.Val))
+	printBody(r.Val.Header, r.Val.Body)
+}
+func (r Rsp) Print() {
+	log.Printf("response:%s\n", printResponse(r.Val))
+	printBody(r.Val.Header, r.Val.Body)
+}
+func (r *ReqStreamResolver) Read() (Packet, error) {
+	req, err := http.ReadRequest(r.buf)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Req{Val: req}, nil
+}
+
+func (r *RspStreamResolver) Read() (Packet, error) {
+	resp, err := http.ReadResponse(r.buf, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return &Rsp{Val: resp}, nil
+}
+
+func printBody(header http.Header, body io.ReadCloser) {
+	defer body.Close()
+
+	r, err := decompressBody(header, body)
 	if err != nil {
 		log.Printf("decompressBody error: %v\n", err)
 		return
 	}
 
-	log.Printf("response:%s\n", printResponse(resp))
-	ct := resp.Header.Get("Content-Type")
+	ct := header.Get("Content-Type")
 	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		bodyBytes, err := ioutil.ReadAll(r)
 		log.Printf("body size:%d, body:%s, error:%v\n", len(bodyBytes), bodyBytes, err)
