@@ -23,7 +23,7 @@ func main() {
 	ifaces := f.String("i", "", "Interfaces to get packets or filename to read, default to loopback interface, comma separated for multiple")
 	confFile := f.String("c", "", "Filename of configuration in yaml format")
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
-	printRsp := f.Bool("resp", false, "Process HTTP response")
+	printRsp := f.Bool("resp", false, "Print HTTP response")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
 	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
 	version := f.Bool("v", false, "show version info and exit")

@@ -73,8 +73,11 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 	for _, addr := range r.Addrs {
 		u := fmt.Sprintf("http://%s%s", addr, uri)
 		r, err := rest.Rest{Method: method, Addr: u, Headers: pairs, Body: body}.Do()
+		if err != nil {
+			log.Printf("E! replay %s %s error:%v", method, u, err)
+		}
 		if r != nil {
-			log.Printf("replay %s %s status: %d, message: %s, error:%v", method, u, r.Status, r.Body, err)
+			log.Printf("replay %s %s status: %d, message: %s", method, u, r.Status, r.Body)
 		}
 	}
 
