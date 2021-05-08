@@ -18,3 +18,5 @@ httplive.db
 .idea
 .history
 vendor
+/conf.yml
+/ctl

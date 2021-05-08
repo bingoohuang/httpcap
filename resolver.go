@@ -14,28 +14,40 @@ import (
 )
 
 type Packet interface {
-	Print()
+	Process()
 }
 
 type StreamResolver interface {
 	Read() (Packet, error)
 }
 
-type ReqStreamResolver struct{ buf *bufio.Reader }
+type ReqStreamResolver struct {
+	buf     *bufio.Reader
+	relayer RequestRelayer
+}
 type RspStreamResolver struct{ buf *bufio.Reader }
-type Req struct{ Val *http.Request }
+type Req struct {
+	Val     *http.Request
+	relayer RequestRelayer
+}
 type Rsp struct{ Val *http.Response }
 
-func (r Req) Print() {
-	r.Val.ParseMultipartForm(defaultMaxMemory)
+func (r Req) Process() {
+	req := r.Val
+	req.ParseMultipartForm(defaultMaxMemory)
 
-	log.Printf("[%s]request:%s\n", Gid(), printRequest(r.Val))
-	printBody(r.Val.Header, r.Val.Body)
+	log.Printf("[%s]request:%s\n", Gid(), printRequest(req))
+
+	body, bodyLen, err := parseBody(req.Header, req.Body)
+	if r.relayer(req.Method, req.RequestURI, req.Header, body) {
+		log.Printf("[%s]body size:%d, body:%s, error:%v\n", Gid(), bodyLen, body, err)
+	}
 }
 
-func (r Rsp) Print() {
+func (r Rsp) Process() {
 	log.Printf("[%s]response:%s\n", Gid(), printResponse(r.Val))
-	printBody(r.Val.Header, r.Val.Body)
+	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body)
+	log.Printf("[%s]body size:%d, body:%s, error:%v\n", Gid(), bodyLen, body, err)
 }
 
 func (r *ReqStreamResolver) Read() (Packet, error) {
@@ -44,7 +56,7 @@ func (r *ReqStreamResolver) Read() (Packet, error) {
 		return nil, err
 	}
 
-	return &Req{Val: req}, nil
+	return &Req{Val: req, relayer: r.relayer}, nil
 }
 
 func (r *RspStreamResolver) Read() (Packet, error) {
@@ -56,31 +68,22 @@ func (r *RspStreamResolver) Read() (Packet, error) {
 	return &Rsp{Val: resp}, nil
 }
 
-func printBody(header http.Header, body io.ReadCloser) {
+func parseBody(header http.Header, body io.ReadCloser) ([]byte, int, error) {
 	defer body.Close()
 
 	r, err := decompressBody(header, body)
 	if err != nil {
 		log.Printf("decompressBody error: %v\n", err)
-		return
+		return nil, 0, err
 	}
 
 	ct := header.Get("Content-Type")
 	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
-		bodyBytes, err := ioutil.ReadAll(r)
-		log.Printf("[%s]body size:%d, body:%s, error:%v\n", Gid(), len(bodyBytes), bodyBytes, err)
+		data, err := ioutil.ReadAll(r)
+		return data, len(data), err
 	} else {
-		log.Printf("[%s]body size:%d\n", Gid(), tcpreader.DiscardBytesToEOF(r))
+		return nil, tcpreader.DiscardBytesToEOF(r), nil
 	}
-}
-
-func contains(s string, subs ...string) bool {
-	for _, sub := range subs {
-		if strings.Contains(s, sub) {
-			return true
-		}
-	}
-	return false
 }
 
 func printRequest(r *http.Request) string {
@@ -121,18 +124,23 @@ func printMapStrings(m map[string][]string) string {
 }
 
 func decompressBody(header http.Header, r io.ReadCloser) (io.ReadCloser, error) {
-	ce := header.Get("Content-Encoding")
-	if ce == "" {
+	switch ce := header.Get("Content-Encoding"); {
+	case ce == "":
+		return r, nil
+	case strings.Contains(ce, "gzip"):
+		return gzip.NewReader(r)
+	case strings.Contains(ce, "deflate"):
+		return zlib.NewReader(r)
+	default:
 		return r, nil
 	}
+}
 
-	if strings.Contains(ce, "gzip") {
-		return gzip.NewReader(r)
+func contains(s string, subs ...string) bool {
+	for _, sub := range subs {
+		if strings.Contains(s, sub) {
+			return true
+		}
 	}
-
-	if strings.Contains(ce, "deflate") {
-		return zlib.NewReader(r)
-	}
-
-	return r, nil
+	return false
 }

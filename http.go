@@ -12,7 +12,8 @@ import (
 
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
-	port int
+	port    int
+	relayer RequestRelayer
 }
 
 // httpStream will handle the actual decoding of http requests.
@@ -20,6 +21,7 @@ type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
 	port           string
+	relayer        RequestRelayer
 }
 
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
@@ -28,6 +30,7 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 		net:       net,
 		transport: transport,
 		r:         tcpreader.NewReaderStream(),
+		relayer:   h.relayer,
 	}
 	go hs.run() // Important... we must guarantee that data from the reader stream is read.
 
@@ -46,7 +49,7 @@ func (h *httpStream) run() {
 	if src == h.port {
 		resolver = &RspStreamResolver{buf: buf}
 	} else {
-		resolver = &ReqStreamResolver{buf: buf}
+		resolver = &ReqStreamResolver{buf: buf, relayer: h.relayer}
 	}
 
 	for {
@@ -61,7 +64,7 @@ func (h *httpStream) run() {
 		}
 
 		log.Printf("[%s]Received from stream [%s]:[%s]", Gid(), h.net, h.transport)
-		r.Print()
+		r.Process()
 	}
 
 }

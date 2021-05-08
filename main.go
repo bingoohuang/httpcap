@@ -3,8 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/bingoohuang/gg/pkg/ctl"
+	"github.com/bingoohuang/golog"
 	"log"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/gopacket"
@@ -16,22 +20,68 @@ import (
 // Build a simple HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
 func main() {
 	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
-	var iface = f.String("i", "lo", "Interface to get packets or filename to read")
-	var port = f.Int("p", 8080, "TCP port")
-	var logAllPackets = f.Bool("v", false, "Logs every packet in great detail")
+	ifaces := f.String("i", "", "Interfaces to get packets or filename to read, default to loopback interface, comma separated for multiple")
+	confFile := f.String("c", "", "Filename of configuration in yaml format")
+	ports := f.String("p", "", "TCP ports, comma separated for multiple")
+	printRsp := f.Bool("resp", false, "Process HTTP response")
+	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
+	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
+	version := f.Bool("v", false, "show version info and exit")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
 
-	handle := createPcapHandle(*iface, *port)
-	process(handle, *port, *logAllPackets)
+	ctl.Config{
+		Initing:      *initing,
+		PrintVersion: *version,
+		VersionInfo:  "httpcap v0.0.1",
+		ConfTemplate: confTemplate,
+		ConfFileName: "conf.yml",
+	}.ProcessInit()
+
+	golog.SetupLogrus()
+
+	conf := ParseConfFile(*confFile, *ports, *ifaces)
+	for _, iface := range conf.Ifaces {
+		for _, port := range conf.Ports {
+			handle := createPcapHandle(iface, port, *printRsp)
+			go process(handle, port, *logAllPackets, conf.ReplayRequest())
+		}
+	}
+
+	select {}
 }
 
-func process(handle *pcap.Handle, port int, logAllPackets bool) {
+func SplitInt(s string) (ret []int) {
+	for _, sub := range strings.Split(s, ",") {
+		sub = strings.TrimSpace(sub)
+		if sub != "" {
+			v, err := strconv.Atoi(sub)
+			if err != nil {
+				log.Fatalf("E! %s is invalid", sub)
+			}
+			ret = append(ret, v)
+		}
+	}
+
+	return ret
+}
+func Split(s string) (ret []string) {
+	for _, sub := range strings.Split(s, ",") {
+		sub = strings.TrimSpace(sub)
+		if sub != "" {
+			ret = append(ret, sub)
+		}
+	}
+
+	return ret
+}
+
+func process(handle *pcap.Handle, port int, logAllPackets bool, relayer RequestRelayer) {
 	log.Println("reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	// Set up assembly
-	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(&httpStreamFactory{port: port}))
+	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(&httpStreamFactory{port: port, relayer: relayer}))
 	for {
 		select {
 		case p := <-packets:
@@ -56,7 +106,7 @@ func process(handle *pcap.Handle, port int, logAllPackets bool) {
 	}
 }
 
-func createPcapHandle(name string, port int) *pcap.Handle {
+func createPcapHandle(name string, port int, printRsp bool) *pcap.Handle {
 	var handle *pcap.Handle
 	var err error
 
@@ -73,7 +123,12 @@ func createPcapHandle(name string, port int) *pcap.Handle {
 		log.Fatal(err)
 	}
 
-	filter := fmt.Sprintf("tcp and port %d", port)
+	filter := ""
+	if printRsp {
+		filter = fmt.Sprintf("tcp and port %d", port)
+	} else {
+		filter = fmt.Sprintf("tcp and dst port %d", port)
+	}
 	if err := handle.SetBPFFilter(filter); err != nil {
 		log.Fatal(err)
 	}

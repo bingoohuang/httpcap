@@ -1,0 +1,19 @@
+---
+
+ifaces:
+  - lo
+  - lo0
+  - en0
+  - eth0
+
+ports:
+  - 5003
+
+relays:
+  - addrs:
+      - 127.0.0.1:5004
+  - conditions:
+    - not: true
+      methodPatterns:
+        - GET
+      urlPatterns:
