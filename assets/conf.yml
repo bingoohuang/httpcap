@@ -9,7 +9,7 @@ ports:
 relays:
   - addrs:
       - 127.0.0.1:5004
-  - conditions:
+    conditions:
       - not: true
         methodPatterns:
           - GET
