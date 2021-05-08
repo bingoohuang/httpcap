@@ -16,7 +16,7 @@ func ListIfaces() map[string]Iface {
 	}
 
 	for _, f := range ifaces {
-		if f.Flags&net.FlagUp == 0 {
+		if f.Flags&net.FlagUp != net.FlagUp {
 			continue
 		}
 		m[f.Name] = Iface{
