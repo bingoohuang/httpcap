@@ -177,29 +177,35 @@ func ParseConfFile(confFile, ports, ifaces string) *Conf {
 		log.Fatal("At least one TCP port should be specified")
 	}
 
-	availIfaces := ListIfaces()
-	if len(conf.Ifaces) == 0 {
-		for _, ifa := range availIfaces {
-			if ifa.Loopback {
-				conf.Ifaces = append(conf.Ifaces, ifa.Name)
-			}
-		}
-	} else {
-		usedIfaces := make([]string, 0, len(conf.Ifaces))
-		for _, ifa := range conf.Ifaces {
-			if _, ok := availIfaces[ifa]; ok {
-				usedIfaces = append(usedIfaces, ifa)
-			} else {
-				log.Printf("W! iface name %s is unknown, it will be ignored", ifa)
-			}
-		}
+	conf.fixIfaces()
+	return conf
+}
 
-		if len(usedIfaces) == 0 {
-			log.Fatalf("E! at least one valid iface name should be specified")
-		}
-
-		conf.Ifaces = usedIfaces
+func (c *Conf) fixIfaces() {
+	hasAny := len(c.Ifaces) == 0
+	if hasAny {
+		c.Ifaces = []string{"any"}
+		return
 	}
 
-	return conf
+	availIfaces := ListIfaces()
+	usedIfaces := make([]string, 0, len(c.Ifaces))
+	for _, ifa := range c.Ifaces {
+		if ifa == "any" {
+			c.Ifaces = []string{"any"}
+			return
+		}
+
+		if _, ok := availIfaces[ifa]; ok {
+			usedIfaces = append(usedIfaces, ifa)
+		} else {
+			log.Printf("W! iface name %s is unknown, it will be ignored", ifa)
+		}
+	}
+
+	if len(usedIfaces) == 0 {
+		log.Fatalf("E! at least one valid iface name should be specified")
+	}
+
+	c.Ifaces = usedIfaces
 }
