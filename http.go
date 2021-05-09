@@ -53,7 +53,7 @@ func (h *httpStream) run() {
 	}
 
 	for {
-		log.Printf("Start to  [%s:%s]", h.net, h.transport)
+		log.Printf("Start to [%s:%s]", h.net, h.transport)
 		r, err := resolver.Read()
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			log.Printf("EOF [%s:%s]", h.net, h.transport)

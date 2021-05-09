@@ -36,18 +36,18 @@ func (r Req) Process() {
 	req := r.Val
 	req.ParseMultipartForm(defaultMaxMemory)
 
-	log.Printf("{PRE}Request:%s\n", printRequest(req))
+	log.Printf("{PRE}Request: %s", printRequest(req))
 
 	body, bodyLen, err := parseBody(req.Header, req.Body)
 	if r.relayer(req.Method, req.RequestURI, req.Header, body) {
-		log.Printf("{PRE}Body size:%d, body:%s, error:%v\n", bodyLen, body, err)
+		log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
 	}
 }
 
 func (r Rsp) Process() {
-	log.Printf("{PRE}Response:%s\n", printResponse(r.Val))
+	log.Printf("{PRE}Response: %s", printResponse(r.Val))
 	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body)
-	log.Printf("{PRE}Body size:%d, body:%s, error:%v\n", bodyLen, body, err)
+	log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
 }
 
 func (r *ReqStreamResolver) Read() (Packet, error) {
@@ -73,7 +73,7 @@ func parseBody(header http.Header, body io.ReadCloser) ([]byte, int, error) {
 
 	r, err := decompressBody(header, body)
 	if err != nil {
-		log.Printf("decompressBody error: %v\n", err)
+		log.Printf("DecompressBody error: %v", err)
 		return nil, 0, err
 	}
 
