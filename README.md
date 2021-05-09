@@ -6,7 +6,7 @@ http request/response recorder based on gopacket(tcpdump).
 
 1. build: `go install -ldflags="-s -w" ./...`
 1. start listening server for test: `httplive`
-1. start httpcap: `sudo httpcap -f "tcp and dst port 5003"  -i lo0` or create conf.yml by `httpcap -init`, then edit it, then `sudo GOLOG_STDOUT=true httpcap -c conf.yml`
+1. start httpcap: `sudo httpcap -f "tcp and dst port 5003"  -i lo0` or create conf.yml by `httpcap -init`, then edit it, then `sudo GOLOG_STDOUT=true httpcap -c conf.yml -resp`
 1. revoke `http http://127.0.0.1:5003/api/demo`
 1. revoke `http http://127.0.0.1:5003/echo/demo name=bingoo`
 

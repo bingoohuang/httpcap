@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/bingoohuang/gg/pkg/fn"
 	"github.com/bingoohuang/gg/pkg/rest"
@@ -74,10 +75,10 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 		u := fmt.Sprintf("http://%s%s", addr, uri)
 		r, err := rest.Rest{Method: method, Addr: u, Headers: pairs, Body: body}.Do()
 		if err != nil {
-			log.Printf("E! replay %s %s error:%v", method, u, err)
+			log.Printf("E! Replay %s %s error:%v", method, u, err)
 		}
 		if r != nil {
-			log.Printf("replay %s %s status: %d, message: %s", method, u, r.Status, r.Body)
+			log.Printf("Replay %s %s status: %d, message: %s", method, u, r.Status, r.Body)
 		}
 	}
 
@@ -115,7 +116,7 @@ type Conf struct {
 
 type RequestRelayer func(method, requestURI string, headers http.Header, body []byte) bool
 
-func (c *Conf) ReplayRequest() RequestRelayer {
+func (c *Conf) CreateRequestReplayer() RequestRelayer {
 	if len(c.Relays) == 0 {
 		return func(method, requestURI string, headers http.Header, body []byte) bool {
 			return false
@@ -125,8 +126,7 @@ func (c *Conf) ReplayRequest() RequestRelayer {
 	return func(method, requestURI string, headers http.Header, body []byte) bool {
 		found := false
 		for _, relay := range c.Relays {
-			v := relay.Relay(method, requestURI, headers, body)
-			if v && !found {
+			if v := relay.Relay(method, requestURI, headers, body); v {
 				found = true
 			}
 		}
@@ -178,6 +178,10 @@ func ParseConfFile(confFile, ports, ifaces string) *Conf {
 	}
 
 	conf.fixIfaces()
+
+	confJSON, _ := json.Marshal(conf)
+	log.Printf("Configuration: %s", confJSON)
+
 	return conf
 }
 

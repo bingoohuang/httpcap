@@ -25,8 +25,8 @@ func main() {
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
 	printRsp := f.Bool("resp", false, "Print HTTP response")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
-	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
-	version := f.Bool("v", false, "show version info and exit")
+	initing := f.Bool("init", false, "Init sample conf.yaml/ctl and then exit")
+	version := f.Bool("v", false, "Show version info and exit")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
 
 	ctl.Config{
@@ -43,7 +43,7 @@ func main() {
 	for _, iface := range conf.Ifaces {
 		for _, port := range conf.Ports {
 			handle := createPcapHandle(iface, port, *printRsp)
-			go process(handle, port, *logAllPackets, conf.ReplayRequest())
+			go process(handle, port, *logAllPackets, conf.CreateRequestReplayer())
 		}
 	}
 
@@ -76,7 +76,7 @@ func Split(s string) (ret []string) {
 }
 
 func process(handle *pcap.Handle, port int, logAllPackets bool, relayer RequestRelayer) {
-	log.Println("reading in packets")
+	log.Println("Reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()

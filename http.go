@@ -43,7 +43,7 @@ const defaultMaxMemory = 32 << 20 // 32 MB
 func (h *httpStream) run() {
 	buf := bufio.NewReader(&h.r)
 	src := fmt.Sprintf("%v", h.transport.Src())
-	log.Printf("src:%s", src)
+	log.Printf("Transport src: %s", src)
 
 	var resolver StreamResolver
 	if src == h.port {
@@ -53,17 +53,17 @@ func (h *httpStream) run() {
 	}
 
 	for {
-		log.Printf("Start to  [%s]:[%s]", h.net, h.transport)
+		log.Printf("Start to  [%s:%s]", h.net, h.transport)
 		r, err := resolver.Read()
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
-			log.Printf("EOF [%s]:[%s]", h.net, h.transport)
+			log.Printf("EOF [%s:%s]", h.net, h.transport)
 			return // We must read until we see an EOF... very important!
 		} else if err != nil {
-			log.Printf("Error reading stream [%s]:[%s], error: %v", h.net, h.transport, err)
+			log.Printf("Error reading stream [%s:%s], error: %v", h.net, h.transport, err)
 			continue
 		}
 
-		log.Printf("Received from stream [%s]:[%s]", h.net, h.transport)
+		log.Printf("Received from stream [%s:%s]", h.net, h.transport)
 		r.Process()
 	}
 }
