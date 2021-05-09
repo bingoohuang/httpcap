@@ -59,7 +59,7 @@ func (h *httpStream) run() {
 			log.Printf("EOF [%s:%s]", h.net, h.transport)
 			return // We must read until we see an EOF... very important!
 		} else if err != nil {
-			log.Printf("Error reading stream [%s:%s], error: %v", h.net, h.transport, err)
+			log.Printf("E! Reading stream [%s:%s], error: %v", h.net, h.transport, err)
 			continue
 		}
 
