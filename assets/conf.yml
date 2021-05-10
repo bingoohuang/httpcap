@@ -13,12 +13,12 @@ metricsKeys:
 relays:
   - addrs:
       - 127.0.0.1:5004
-    paths:
+    recordFails:
       - key: licenseCode
         # check it on http://xpather.com/
         path: //field[@name='licenseCode']/text()
+    failLogFile: ./relay_error.log
     conditions:
-      - not: true
-        methodPatterns:
-          - GET
-        urlPatterns:
+      methodPatterns:
+        - !GET
+      urlPatterns:

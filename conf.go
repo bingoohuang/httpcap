@@ -4,10 +4,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/bingoohuang/golog/pkg/rotate"
 	"log"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/antchfx/xmlquery"
 
@@ -32,7 +34,6 @@ var confTemplate []byte
 
 // ReplayCondition is the condition which should be specified for replay requests.
 type ReplayCondition struct {
-	Not            bool     `yaml:"not"`
 	MethodPatterns []string `yaml:"methodPatterns"`
 	URLPatterns    []string `yaml:"urlPatterns"`
 }
@@ -44,8 +45,12 @@ func (c *ReplayCondition) MatchMethod(method string) bool {
 	}
 
 	for _, m := range c.MethodPatterns {
+		yes := !strings.HasPrefix(m, "!")
+		if !yes {
+			m = m[1:]
+		}
 		if fn.Match(m, method, fn.WithCaseSensitive(true)) {
-			return true
+			return yes
 		}
 	}
 
@@ -59,8 +64,12 @@ func (c *ReplayCondition) MatchURI(uri string) bool {
 	}
 
 	for _, m := range c.URLPatterns {
+		yes := !strings.HasPrefix(m, "!")
+		if !yes {
+			m = m[1:]
+		}
 		if fn.Match(m, uri, fn.WithCaseSensitive(true)) {
-			return true
+			return yes
 		}
 	}
 
@@ -74,13 +83,28 @@ func (c *ReplayCondition) Matches(method string, uri string, _ http.Header) bool
 
 // Replay defines the replay action in configuration.
 type Replay struct {
-	Addrs      []string          `yaml:"addrs"`
-	Conditions []ReplayCondition `yaml:"conditions"`
-	Paths      []PathValue       `yaml:"paths"`
+	Addrs       []string          `yaml:"addrs"`
+	Conditions  []ReplayCondition `yaml:"conditions"`
+	RecordFails []RecordFail      `yaml:"recordFails"`
+	FailLogFile string            `yaml:"failLogFile"`
+
+	failLog *rotate.Rotate
 }
 
-// PathValue defines the structure of PathValue.
-type PathValue struct {
+func (r *Replay) setup() {
+	if r.FailLogFile == "" {
+		return
+	}
+
+	var err error
+	r.failLog, err = rotate.New(r.FailLogFile)
+	if err != nil {
+		log.Fatalf("failed to create rotate log file %s, error: %v", r.FailLogFile, err)
+	}
+}
+
+// RecordFail defines the structure of RecordFail.
+type RecordFail struct {
 	Key  string `yaml:"key"`
 	Path string `yaml:"path"`
 }
@@ -96,29 +120,41 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 		pairs[k] = v[0]
 	}
 
-	fails := 0
+	errMsgs := make([]string, 0, len(r.Addrs))
 	for _, addr := range r.Addrs {
 		u := fmt.Sprintf("http://%s%s", addr, uri)
 		r, err := rest.Rest{Method: method, Addr: u, Headers: pairs, Body: body}.Do()
 		if err != nil {
 			log.Printf("E! Replay %s %s error:%v", method, u, err)
-		}
-		if r != nil {
+			errMsgs = append(errMsgs, fmt.Sprintf("write %s fail:%v", u, err))
+		} else if r != nil {
 			log.Printf("Replay %s %s status: %d, message: %s", method, u, r.Status, r.Body)
-		}
-
-		if err != nil || r.Status < 200 || r.Status >= 300 {
-			fails++
+			if r.Status < 200 || r.Status >= 300 {
+				errMsgs = append(errMsgs, fmt.Sprintf("write %s status:%v", u, r.Status))
+			}
 		}
 	}
 
-	if fails == 0 {
+	if len(errMsgs) == 0 {
 		return true
 	}
 
 	vm := r.recordReqValues(headers, body)
-	vmJSON, _ := json.Marshal(vm)
+	vmJSON, _ := json.Marshal(struct {
+		Time   string
+		Keys   map[string]string
+		Errors []string
+	}{
+		Time:   time.Now().Format(`2006-01-02 15:04:05.000`),
+		Keys:   vm,
+		Errors: errMsgs,
+	})
 	log.Printf("Records failed request: %s", vmJSON)
+
+	if r.failLog != nil {
+		_, _ = r.failLog.Write(vmJSON)
+		_, _ = r.failLog.Write([]byte("\n"))
+	}
 
 	return true
 }
@@ -135,8 +171,8 @@ func (r *Replay) recordReqValues(headers http.Header, body []byte) map[string]st
 }
 
 func (r *Replay) recordJSONValues(b []byte) map[string]string {
-	vm := make(map[string]string, len(r.Paths))
-	for _, xp := range r.Paths {
+	vm := make(map[string]string, len(r.RecordFails))
+	for _, xp := range r.RecordFails {
 		value := jj.GetBytes(b, xp.Path)
 		vm[xp.Key] = value.String()
 	}
@@ -150,8 +186,8 @@ func (r *Replay) recordXMLValues(b []byte) map[string]string {
 		return nil
 	}
 
-	vm := make(map[string]string, len(r.Paths))
-	for _, xp := range r.Paths {
+	vm := make(map[string]string, len(r.RecordFails))
+	for _, xp := range r.RecordFails {
 		l := xmlquery.Find(doc, xp.Path)
 		values := make([]string, len(l))
 		for i, n := range l {
@@ -168,25 +204,16 @@ func (r *Replay) recordXMLValues(b []byte) map[string]string {
 // Or if any yes conditions matches, return true.
 // Else return false.
 func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
-	yesConditions := 0
-	notConditions := 0
-	matches1 := 0
+	if len(r.Conditions) == 0 {
+		return true
+	}
 	for _, cond := range r.Conditions {
-		if cond.Not {
-			notConditions++
-		} else {
-			yesConditions++
-		}
 		if cond.Matches(method, uri, headers) {
-			if cond.Not {
-				return false
-			}
-
-			matches1++
+			return true
 		}
 	}
 
-	return yesConditions == 0 || matches1 > 0
+	return false
 }
 
 // requestRelayer defines the func prototype to replay a request.
@@ -257,6 +284,8 @@ func ParseConfFile(confFile, ports, ifaces string) *Conf {
 	confJSON, _ := json.Marshal(conf)
 	log.Printf("Configuration: %s", confJSON)
 
+	conf.setup()
+
 	return conf
 }
 
@@ -291,4 +320,10 @@ func (c *Conf) fixIfaces() {
 	}
 
 	c.Ifaces = usedIfaces
+}
+
+func (c *Conf) setup() {
+	for i := range c.Relays {
+		c.Relays[i].setup()
+	}
 }
