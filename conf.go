@@ -49,8 +49,9 @@ func (c *ReplayCondition) MatchMethod(method string) bool {
 		if !yes {
 			m = m[1:]
 		}
-		if fn.Match(m, method, fn.WithCaseSensitive(true)) {
-			return yes
+
+		if yes == fn.Match(m, method, fn.WithCaseSensitive(true)) {
+			return true
 		}
 	}
 
@@ -68,8 +69,8 @@ func (c *ReplayCondition) MatchURI(uri string) bool {
 		if !yes {
 			m = m[1:]
 		}
-		if fn.Match(m, uri, fn.WithCaseSensitive(true)) {
-			return yes
+		if yes == fn.Match(m, uri, fn.WithCaseSensitive(true)) {
+			return true
 		}
 	}
 

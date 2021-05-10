@@ -20,3 +20,4 @@ httplive.db
 vendor
 /conf.yml
 /ctl
+/relay_error.log*

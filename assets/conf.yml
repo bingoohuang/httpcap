@@ -20,5 +20,5 @@ relays:
     failLogFile: ./relay_error.log
     conditions:
       - methodPatterns:
-          - !GET
+          - "!GET"
         urlPatterns:
