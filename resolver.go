@@ -5,36 +5,51 @@ import (
 	"compress/gzip"
 	"compress/zlib"
 	"fmt"
-	"github.com/google/gopacket/tcpassembly/tcpreader"
 	"io"
 	"io/ioutil"
 	"log"
 	"net/http"
 	"strings"
+
+	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-type Packet interface {
-	Process()
-}
+type (
+	// PacketProcessor defines the http packet processor interface.
+	PacketProcessor interface {
+		Process()
+	}
 
-type StreamResolver interface {
-	Read() (Packet, error)
-}
+	// PacketReader reads http packet.
+	PacketReader interface {
+		Read() (PacketProcessor, error)
+	}
 
-type ReqStreamResolver struct {
-	buf     *bufio.Reader
-	relayer RequestRelayer
-}
-type RspStreamResolver struct{ buf *bufio.Reader }
-type Req struct {
-	Val     *http.Request
-	relayer RequestRelayer
-}
-type Rsp struct{ Val *http.Response }
+	// ReqPacketReader reads http request packet.
+	ReqPacketReader struct {
+		buf     *bufio.Reader
+		relayer requestRelayer
+	}
 
+	// RspReqPacketReader reads http response packet.
+	RspReqPacketReader struct {
+		buf *bufio.Reader
+	}
+	// Req is the rsp processor.
+	Req struct {
+		Val     *http.Request
+		relayer requestRelayer
+	}
+	// Rsp is the rsp processor.
+	Rsp struct {
+		Val *http.Response
+	}
+)
+
+// Process processes the req.
 func (r Req) Process() {
 	req := r.Val
-	req.ParseMultipartForm(defaultMaxMemory)
+	_ = req.ParseMultipartForm(defaultMaxMemory)
 
 	log.Printf("{PRE}Request: %s", printRequest(req))
 
@@ -44,13 +59,15 @@ func (r Req) Process() {
 	}
 }
 
+// Process processes the rsp.
 func (r Rsp) Process() {
 	log.Printf("{PRE}Response: %s", printResponse(r.Val))
 	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body)
 	log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
 }
 
-func (r *ReqStreamResolver) Read() (Packet, error) {
+// Read reads a request.
+func (r *ReqPacketReader) Read() (PacketProcessor, error) {
 	req, err := http.ReadRequest(r.buf)
 	if err != nil {
 		return nil, err
@@ -59,7 +76,7 @@ func (r *ReqStreamResolver) Read() (Packet, error) {
 	return &Req{Val: req, relayer: r.relayer}, nil
 }
 
-func (r *RspStreamResolver) Read() (Packet, error) {
+func (r *RspReqPacketReader) Read() (PacketProcessor, error) {
 	resp, err := http.ReadResponse(r.buf, nil)
 	if err != nil {
 		return nil, err
@@ -81,9 +98,9 @@ func parseBody(header http.Header, body io.ReadCloser) ([]byte, int, error) {
 	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		data, err := ioutil.ReadAll(r)
 		return data, len(data), err
-	} else {
-		return nil, tcpreader.DiscardBytesToEOF(r), nil
 	}
+
+	return nil, tcpreader.DiscardBytesToEOF(r), nil
 }
 
 func printRequest(r *http.Request) string {

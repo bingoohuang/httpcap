@@ -2,11 +2,13 @@ package main
 
 import "net"
 
+// Iface defines
 type Iface struct {
 	Name     string
 	Loopback bool
 }
 
+// ListIfaces lists the host's interfaces.
 func ListIfaces() map[string]Iface {
 	m := make(map[string]Iface)
 

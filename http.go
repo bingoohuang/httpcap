@@ -3,17 +3,18 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"io"
+	"log"
+
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
-	"io"
-	"log"
 )
 
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
 	port    int
-	relayer RequestRelayer
+	relayer requestRelayer
 }
 
 // httpStream will handle the actual decoding of http requests.
@@ -21,7 +22,7 @@ type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
 	port           string
-	relayer        RequestRelayer
+	relayer        requestRelayer
 }
 
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
@@ -45,11 +46,11 @@ func (h *httpStream) run() {
 	src := fmt.Sprintf("%v", h.transport.Src())
 	log.Printf("Transport src: %s", src)
 
-	var resolver StreamResolver
+	var resolver PacketReader
 	if src == h.port {
-		resolver = &RspStreamResolver{buf: buf}
+		resolver = &RspReqPacketReader{buf: buf}
 	} else {
-		resolver = &ReqStreamResolver{buf: buf, relayer: h.relayer}
+		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer}
 	}
 
 	for {

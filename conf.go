@@ -3,27 +3,30 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/bingoohuang/gg/pkg/fn"
-	"github.com/bingoohuang/gg/pkg/rest"
-	"github.com/goccy/go-yaml"
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/bingoohuang/gg/pkg/fn"
+	"github.com/bingoohuang/gg/pkg/rest"
+	"github.com/goccy/go-yaml"
+
+	_ "embed"
 )
 
-import (
-	_ "embed" // "embed"
-)
+// "embed"
 
 //go:embed assets/conf.yml
 var confTemplate []byte
 
+// ReplayCondition is the condition which should be specified for replay requests.
 type ReplayCondition struct {
 	Not            bool     `yaml:"not"`
 	MethodPatterns []string `yaml:"methodPatterns"`
-	UrlPatterns    []string `yaml:"urlPatterns"`
+	URLPatterns    []string `yaml:"urlPatterns"`
 }
 
+// MatchMethod tests the HTTP method matches the specified pattern.
 func (c *ReplayCondition) MatchMethod(method string) bool {
 	if len(c.MethodPatterns) == 0 {
 		return true
@@ -38,12 +41,13 @@ func (c *ReplayCondition) MatchMethod(method string) bool {
 	return false
 }
 
-func (c *ReplayCondition) MatchUrl(uri string) bool {
-	if len(c.UrlPatterns) == 0 {
+// MatchURI tests the HTTP RequestURI matches the specified pattern.
+func (c *ReplayCondition) MatchURI(uri string) bool {
+	if len(c.URLPatterns) == 0 {
 		return true
 	}
 
-	for _, m := range c.UrlPatterns {
+	for _, m := range c.URLPatterns {
 		if fn.Match(m, uri, fn.WithCaseSensitive(true)) {
 			return true
 		}
@@ -52,15 +56,18 @@ func (c *ReplayCondition) MatchUrl(uri string) bool {
 	return false
 }
 
-func (c *ReplayCondition) MatchMethodUrl(method string, uri string, headers http.Header) bool {
-	return c.MatchMethod(method) && c.MatchUrl(uri)
+// Matches test the http request matches the replay condition or not.
+func (c *ReplayCondition) Matches(method string, uri string, headers http.Header) bool {
+	return c.MatchMethod(method) && c.MatchURI(uri)
 }
 
+// Replay defines the replay action in configuration.
 type Replay struct {
 	Addrs      []string          `yaml:"addrs"`
 	Conditions []ReplayCondition `yaml:"conditions"`
 }
 
+// Relay relays the http requests.
 func (r *Replay) Relay(method string, uri string, headers http.Header, body []byte) bool {
 	if !r.Matches(method, uri, headers) {
 		return false
@@ -85,38 +92,43 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 	return true
 }
 
+// Matches tests the request matches the replay's specified conditions or not.
+// If matches not condition, return false directly.
+// If no yes conditions defined, returns true.
+// Or if any yes conditions matches, return true.
+// Else return false.
 func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
+	yesConditions := 0
+	notConditions := 0
 	matches1 := 0
-	matches2 := 0
 	for _, cond := range r.Conditions {
-		if cond.MatchMethodUrl(method, uri, headers) {
+		if cond.Not {
+			notConditions++
+		} else {
+			yesConditions++
+		}
+		if cond.Matches(method, uri, headers) {
 			if cond.Not {
-				matches2++
-			} else {
-				matches1++
+				return false
 			}
+
+			matches1++
 		}
 	}
 
-	switch {
-	case matches1 == 0 && matches2 == 0:
-		return true
-	case matches2 > 0:
-		return false
-	default:
-		return true
-	}
+	return yesConditions == 0 || matches1 > 0
 }
 
+// Conf defines the structure to unmrshal the configuration yaml file.
 type Conf struct {
 	Ifaces []string `yaml:"ifaces"`
 	Ports  []int    `yaml:"ports"`
 	Relays []Replay `yaml:"relays"`
 }
 
-type RequestRelayer func(method, requestURI string, headers http.Header, body []byte) bool
+type requestRelayer func(method, requestURI string, headers http.Header, body []byte) bool
 
-func (c *Conf) CreateRequestReplayer() RequestRelayer {
+func (c *Conf) createRequestReplayer() requestRelayer {
 	if len(c.Relays) == 0 {
 		return func(method, requestURI string, headers http.Header, body []byte) bool {
 			return false
@@ -192,7 +204,8 @@ func (c *Conf) fixIfaces() {
 		return
 	}
 
-	availIfaces := ListIfaces()
+	var availIfaces map[string]Iface
+
 	usedIfaces := make([]string, 0, len(c.Ifaces))
 	for _, ifa := range c.Ifaces {
 		if ifa == "any" {
@@ -200,6 +213,9 @@ func (c *Conf) fixIfaces() {
 			return
 		}
 
+		if availIfaces == nil {
+			availIfaces = ListIfaces()
+		}
 		if _, ok := availIfaces[ifa]; ok {
 			usedIfaces = append(usedIfaces, ifa)
 		} else {

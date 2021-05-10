@@ -3,13 +3,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/bingoohuang/gg/pkg/ctl"
-	"github.com/bingoohuang/golog"
 	"log"
 	"os"
-	"strconv"
-	"strings"
 	"time"
+
+	"github.com/bingoohuang/gg/pkg/ctl"
+	"github.com/bingoohuang/golog"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -25,8 +24,8 @@ func main() {
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
 	printRsp := f.Bool("resp", false, "Print HTTP response")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
-	initing := f.Bool("init", false, "Init sample conf.yaml/ctl and then exit")
-	version := f.Bool("v", false, "Show version info and exit")
+	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
+	version := f.Bool("v", false, "show version info and exit")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
 
 	ctl.Config{
@@ -43,40 +42,15 @@ func main() {
 	for _, iface := range conf.Ifaces {
 		for _, port := range conf.Ports {
 			handle := createPcapHandle(iface, port, *printRsp)
-			go process(handle, port, *logAllPackets, conf.CreateRequestReplayer())
+			go process(handle, port, *logAllPackets, conf.createRequestReplayer())
 		}
 	}
 
 	select {}
 }
 
-func SplitInt(s string) (ret []int) {
-	for _, sub := range strings.Split(s, ",") {
-		sub = strings.TrimSpace(sub)
-		if sub != "" {
-			v, err := strconv.Atoi(sub)
-			if err != nil {
-				log.Fatalf("E! %s is invalid", sub)
-			}
-			ret = append(ret, v)
-		}
-	}
-
-	return ret
-}
-func Split(s string) (ret []string) {
-	for _, sub := range strings.Split(s, ",") {
-		sub = strings.TrimSpace(sub)
-		if sub != "" {
-			ret = append(ret, sub)
-		}
-	}
-
-	return ret
-}
-
-func process(handle *pcap.Handle, port int, logAllPackets bool, relayer RequestRelayer) {
-	log.Println("Reading in packets")
+func process(handle *pcap.Handle, port int, logAllPackets bool, relayer requestRelayer) {
+	log.Println("reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
@@ -107,31 +81,33 @@ func process(handle *pcap.Handle, port int, logAllPackets bool, relayer RequestR
 }
 
 func createPcapHandle(name string, port int, printRsp bool) *pcap.Handle {
-	var handle *pcap.Handle
-	var err error
-
-	// Set up pcap packet capture
-	if v, e := os.Stat(name); e == nil && !v.IsDir() {
-		log.Printf("Reading from pcap dump %q", name)
-		handle, err = pcap.OpenOffline(name)
-	} else {
-		log.Printf("Starting capture on interface %q", name)
-		handle, err = pcap.OpenLive(name, 65535, false, pcap.BlockForever)
-	}
-
+	handle, err := pcapOpen(name)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	filter := ""
-	if printRsp {
-		filter = fmt.Sprintf("tcp and port %d", port)
-	} else {
-		filter = fmt.Sprintf("tcp and dst port %d", port)
-	}
-	if err := handle.SetBPFFilter(filter); err != nil {
+	if err := handle.SetBPFFilter(createFilter(printRsp, port)); err != nil {
 		log.Fatal(err)
 	}
 
 	return handle
+}
+
+func pcapOpen(name string) (*pcap.Handle, error) {
+	// Set up pcap packet capture
+	if v, e := os.Stat(name); e == nil && !v.IsDir() {
+		log.Printf("Reading from pcap dump %q", name)
+		return pcap.OpenOffline(name)
+	}
+
+	log.Printf("Starting capture on interface %q", name)
+	return pcap.OpenLive(name, 65535, false, pcap.BlockForever)
+}
+
+func createFilter(printRsp bool, port int) string {
+	if printRsp {
+		return fmt.Sprintf("tcp and port %d", port)
+	}
+
+	return fmt.Sprintf("tcp and dst port %d", port)
 }
