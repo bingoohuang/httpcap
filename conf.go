@@ -1,14 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"strings"
+
+	"github.com/antchfx/xmlquery"
 
 	"github.com/bingoohuang/gg/pkg/fn"
 	"github.com/bingoohuang/gg/pkg/rest"
+	"github.com/bingoohuang/jj"
 	"github.com/goccy/go-yaml"
 
 	_ "embed"
@@ -63,7 +68,7 @@ func (c *ReplayCondition) MatchURI(uri string) bool {
 }
 
 // Matches test the http request matches the replay condition or not.
-func (c *ReplayCondition) Matches(method string, uri string, headers http.Header) bool {
+func (c *ReplayCondition) Matches(method string, uri string, _ http.Header) bool {
 	return c.MatchMethod(method) && c.MatchURI(uri)
 }
 
@@ -71,10 +76,17 @@ func (c *ReplayCondition) Matches(method string, uri string, headers http.Header
 type Replay struct {
 	Addrs      []string          `yaml:"addrs"`
 	Conditions []ReplayCondition `yaml:"conditions"`
+	Paths      []PathValue       `yaml:"paths"`
+}
+
+// PathValue defines the structure of PathValue.
+type PathValue struct {
+	Key  string `yaml:"key"`
+	Path string `yaml:"path"`
 }
 
 // Relay relays the http requests.
-func (r *Replay) Relay(method string, uri string, headers http.Header, body []byte) bool {
+func (r *Replay) Relay(method string, uri string, headers http.Header, body []byte) (matches bool) {
 	if !r.Matches(method, uri, headers) {
 		return false
 	}
@@ -84,6 +96,7 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 		pairs[k] = v[0]
 	}
 
+	fails := 0
 	for _, addr := range r.Addrs {
 		u := fmt.Sprintf("http://%s%s", addr, uri)
 		r, err := rest.Rest{Method: method, Addr: u, Headers: pairs, Body: body}.Do()
@@ -93,9 +106,68 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 		if r != nil {
 			log.Printf("Replay %s %s status: %d, message: %s", method, u, r.Status, r.Body)
 		}
+
+		if err != nil || r.Status < 200 || r.Status >= 300 {
+			fails++
+		}
 	}
 
+	if fails == 0 {
+		return true
+	}
+
+	vm := r.recordReqValues(headers, body)
+	vmJSON, _ := json.Marshal(vm)
+	log.Printf("Records failed request: %s", vmJSON)
+
 	return true
+}
+
+func (r *Replay) recordReqValues(headers http.Header, body []byte) map[string]string {
+	contentType := headers.Get("Content-Type")
+	switch {
+	case strings.Contains(contentType, "application/xml"):
+		return r.recordXMLValues(body)
+	case strings.Contains(contentType, "application/json"):
+		return r.recordJSONValues(body)
+	}
+
+	return nil
+}
+
+func (r *Replay) recordJSONValues(b []byte) map[string]string {
+	vm := make(map[string]string, len(r.Paths))
+	for _, xp := range r.Paths {
+		value := jj.GetBytes(b, xp.Path)
+		vm[xp.Key] = value.String()
+	}
+	return vm
+}
+
+func (r *Replay) recordXMLValues(b []byte) map[string]string {
+	doc, err := xmlquery.Parse(bytes.NewReader(b))
+	if err != nil {
+		log.Printf("E! failed to parse xml %s, errors: %v", b, err)
+		return nil
+	}
+
+	vm := make(map[string]string, len(r.Paths))
+	for _, xp := range r.Paths {
+		l := xmlquery.Find(doc, xp.Path)
+		switch v := len(l); v {
+		case 0:
+			vm[xp.Key] = "(empty)"
+		case 1:
+			vm[xp.Key] = l[0].Data
+		default:
+			values := make([]string, v)
+			for i, n := range l {
+				values[i] = n.Data
+			}
+			vm[xp.Key] = strings.Join(values, ",")
+		}
+	}
+	return vm
 }
 
 // Matches tests the request matches the replay's specified conditions or not.
@@ -125,6 +197,8 @@ func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
 	return yesConditions == 0 || matches1 > 0
 }
 
+// requestRelayer defines the func prototype to replay a request.
+// return -1: no relays defined, or number of replays applied.
 type requestRelayer func(method, requestURI string, headers http.Header, body []byte) int
 
 func (c *Conf) createRequestReplayer() requestRelayer {

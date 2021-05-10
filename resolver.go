@@ -57,8 +57,7 @@ func (r Req) Process() {
 	if len(keys) > 0 {
 		key1 := SliceItem(keys, 0, "httpcap")
 		key2 := SliceItem(keys, 1, "req")
-		metric.QPS(key1, key2, req.Method)
-		log.Printf("{PRE}metric.QPS(%s, %s, %s)", key1, key2, req.Method)
+		metric.QPS(key1, key2, req.Method).Record(1)
 	}
 
 	_ = req.ParseMultipartForm(defaultMaxMemory)
