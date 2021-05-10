@@ -19,6 +19,6 @@ relays:
         path: //field[@name='licenseCode']/text()
     failLogFile: ./relay_error.log
     conditions:
-      methodPatterns:
-        - !GET
-      urlPatterns:
+      - methodPatterns:
+          - !GET
+        urlPatterns:
