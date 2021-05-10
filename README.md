@@ -78,6 +78,7 @@ Content-Type: application/json; charset=utf-8
 
 1. [tcpdump](https://danielmiessler.com/study/tcpdump/)
 1. [gopacket exapmle httpassembly](https://github.com/google/gopacket/blob/master/examples/httpassembly/main.go)
+1. [基于Go Packet实现网络数据包的捕获与分析](https://cloud.tencent.com/developer/article/1025427)
 1. [asmcos sniffer](https://github.com/asmcos/sniffer/blob/master/sniffer.go)
 1. [随机身份证号码生成](http://sfz.uzuzuz.com/?region=110101&birthday=19900307&sex=2&num=5&r=38)
 1. [姓名生成器](https://www.qqxiuzi.cn/zh/xingming/)
