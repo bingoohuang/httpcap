@@ -30,3 +30,12 @@ func SplitInt(s string) (ret []int) {
 
 	return ret
 }
+
+// SliceItem returns the element of ss slice at index if index is valid, or defaultValue returned.
+func SliceItem(ss []string, index int, defaultValue string) string {
+	if index < len(ss) {
+		return ss[index]
+	}
+
+	return defaultValue
+}

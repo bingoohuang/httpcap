@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/bingoohuang/gometrics/metric"
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
@@ -29,6 +30,7 @@ type (
 	ReqPacketReader struct {
 		buf     *bufio.Reader
 		relayer requestRelayer
+		conf    *Conf
 	}
 
 	// RspReqPacketReader reads http response packet.
@@ -39,6 +41,7 @@ type (
 	Req struct {
 		Val     *http.Request
 		relayer requestRelayer
+		conf    *Conf
 	}
 	// Rsp is the rsp processor.
 	Rsp struct {
@@ -49,6 +52,15 @@ type (
 // Process processes the req.
 func (r Req) Process() {
 	req := r.Val
+
+	keys := r.conf.MetricsKeys
+	if len(keys) > 0 {
+		key1 := SliceItem(keys, 0, "httpcap")
+		key2 := SliceItem(keys, 1, "req")
+		metric.QPS(key1, key2, req.Method)
+		log.Printf("{PRE}metric.QPS(%s, %s, %s)", key1, key2, req.Method)
+	}
+
 	_ = req.ParseMultipartForm(defaultMaxMemory)
 
 	log.Printf("{PRE}Request: %s", printRequest(req))
@@ -73,7 +85,7 @@ func (r *ReqPacketReader) Read() (PacketProcessor, error) {
 		return nil, err
 	}
 
-	return &Req{Val: req, relayer: r.relayer}, nil
+	return &Req{Val: req, relayer: r.relayer, conf: r.conf}, nil
 }
 
 func (r *RspReqPacketReader) Read() (PacketProcessor, error) {

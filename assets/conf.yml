@@ -6,6 +6,10 @@ ifaces:
 ports:
   - 5003
 
+metricsKeys:
+  - httpcap
+  - solr
+
 relays:
   - addrs:
       - 127.0.0.1:5004

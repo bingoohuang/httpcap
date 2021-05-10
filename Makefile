@@ -70,3 +70,7 @@ docker:
 
 dockerinstall:
 	go install -v -x -a -ldflags '-extldflags "-static"' ./...
+
+
+run:
+	sudo ENV_FILE=/Users/anan/go/bin/httpcap.env GOLOG_STDOUT=true httpcap -c assets/conf.yml -resp

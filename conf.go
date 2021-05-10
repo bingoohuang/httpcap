@@ -14,7 +14,13 @@ import (
 	_ "embed"
 )
 
-// "embed"
+// Conf defines the structure to unmrshal the configuration yaml file.
+type Conf struct {
+	Ifaces      []string `yaml:"ifaces"`
+	Ports       []int    `yaml:"ports"`
+	MetricsKeys []string `yaml:"metricsKeys"`
+	Relays      []Replay `yaml:"relays"`
+}
 
 //go:embed assets/conf.yml
 var confTemplate []byte
@@ -117,13 +123,6 @@ func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
 	}
 
 	return yesConditions == 0 || matches1 > 0
-}
-
-// Conf defines the structure to unmrshal the configuration yaml file.
-type Conf struct {
-	Ifaces []string `yaml:"ifaces"`
-	Ports  []int    `yaml:"ports"`
-	Relays []Replay `yaml:"relays"`
 }
 
 type requestRelayer func(method, requestURI string, headers http.Header, body []byte) bool

@@ -42,20 +42,22 @@ func main() {
 	for _, iface := range conf.Ifaces {
 		for _, port := range conf.Ports {
 			handle := createPcapHandle(iface, port, *printRsp)
-			go process(handle, port, *logAllPackets, conf.createRequestReplayer())
+			go process(handle, port, *logAllPackets, conf)
 		}
 	}
 
 	select {}
 }
 
-func process(handle *pcap.Handle, port int, logAllPackets bool, relayer requestRelayer) {
+func process(handle *pcap.Handle, port int, logAllPackets bool, conf *Conf) {
 	log.Println("reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	// Set up assembly
-	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(&httpStreamFactory{port: port, relayer: relayer}))
+	relayer := conf.createRequestReplayer()
+	factory := &httpStreamFactory{conf: conf, port: port, relayer: relayer}
+	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
 	for {
 		select {
 		case p := <-packets:
