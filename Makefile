@@ -75,4 +75,4 @@ targz:
 
 
 run:
-	sudo ENV_FILE=/Users/anan/go/bin/httpcap.env GOLOG_STDOUT=true httpcap -c assets/conf.yml -resp
+	sudo GOLOG_STDOUT=true httpcap -c assets/conf.yml -resp

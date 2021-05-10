@@ -124,8 +124,7 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 }
 
 func (r *Replay) recordReqValues(headers http.Header, body []byte) map[string]string {
-	contentType := headers.Get("Content-Type")
-	switch {
+	switch contentType := headers.Get("Content-Type"); {
 	case strings.Contains(contentType, "application/xml"):
 		return r.recordXMLValues(body)
 	case strings.Contains(contentType, "application/json"):
@@ -154,18 +153,11 @@ func (r *Replay) recordXMLValues(b []byte) map[string]string {
 	vm := make(map[string]string, len(r.Paths))
 	for _, xp := range r.Paths {
 		l := xmlquery.Find(doc, xp.Path)
-		switch v := len(l); v {
-		case 0:
-			vm[xp.Key] = "(empty)"
-		case 1:
-			vm[xp.Key] = l[0].Data
-		default:
-			values := make([]string, v)
-			for i, n := range l {
-				values[i] = n.Data
-			}
-			vm[xp.Key] = strings.Join(values, ",")
+		values := make([]string, len(l))
+		for i, n := range l {
+			values[i] = n.Data
 		}
+		vm[xp.Key] = strings.Join(values, ",")
 	}
 	return vm
 }
@@ -203,7 +195,7 @@ type requestRelayer func(method, requestURI string, headers http.Header, body []
 
 func (c *Conf) createRequestReplayer() requestRelayer {
 	if len(c.Relays) == 0 {
-		return func(method, requestURI string, headers http.Header, body []byte) int { return -1 }
+		return func(_, _ string, _ http.Header, _ []byte) int { return -1 }
 	}
 
 	return func(method, requestURI string, headers http.Header, body []byte) int {
