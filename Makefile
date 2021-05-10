@@ -1,5 +1,5 @@
-.PHONY: default test install
-all: default test install
+.PHONY: init install
+all: init install
 
 app=$(notdir $(shell pwd))
 
@@ -64,12 +64,14 @@ coverview:
 # 静态连接 glibc
 docker:
 	mkdir -p ~/dockergo
-	docker run --rm -v "$$PWD":/usr/src/myapp -v "$$HOME/dockergo":/go -w /usr/src/myapp golang:1.16.4-alpine3.13 make dockerinstall
-	upx ~/dockergo/bin/${app}
-	gzip -f ~/dockergo/bin/${app}
+	docker run --rm -v "$$PWD":/usr/src/myapp -v "$$HOME/dockergo":/go -w /usr/src/myapp mlallaouret/golang-libpcap:1.6 make dockerinstall
+	upx ${app}
 
 dockerinstall:
-	go install -v -x -a -ldflags '-extldflags "-static"' ./...
+	go build -v -x -a -ldflags '-s -w -extldflags "-static"'
+
+targz:
+	cd .. && tar czvf httpcap.tar.gz --exclude .git --exclude .idea httpcap
 
 
 run:

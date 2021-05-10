@@ -66,7 +66,9 @@ func (r Req) Process() {
 	log.Printf("{PRE}Request: %s", printRequest(req))
 
 	body, bodyLen, err := parseBody(req.Header, req.Body)
-	if r.relayer(req.Method, req.RequestURI, req.Header, body) {
+	relayCount := r.relayer(req.Method, req.RequestURI, req.Header, body)
+
+	if relayCount != 0 {
 		log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
 	}
 }

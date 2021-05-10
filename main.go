@@ -50,7 +50,7 @@ func main() {
 }
 
 func process(handle *pcap.Handle, port int, logAllPackets bool, conf *Conf) {
-	log.Println("reading in packets")
+	log.Println("Reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
@@ -103,7 +103,7 @@ func pcapOpen(name string) (*pcap.Handle, error) {
 	}
 
 	log.Printf("Starting capture on interface %q", name)
-	return pcap.OpenLive(name, 65535, false, pcap.BlockForever)
+	return pcap.OpenLive(name, 65535, true, pcap.BlockForever)
 }
 
 func createFilter(printRsp bool, port int) string {

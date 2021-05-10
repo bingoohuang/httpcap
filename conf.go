@@ -125,20 +125,18 @@ func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
 	return yesConditions == 0 || matches1 > 0
 }
 
-type requestRelayer func(method, requestURI string, headers http.Header, body []byte) bool
+type requestRelayer func(method, requestURI string, headers http.Header, body []byte) int
 
 func (c *Conf) createRequestReplayer() requestRelayer {
 	if len(c.Relays) == 0 {
-		return func(method, requestURI string, headers http.Header, body []byte) bool {
-			return false
-		}
+		return func(method, requestURI string, headers http.Header, body []byte) int { return -1 }
 	}
 
-	return func(method, requestURI string, headers http.Header, body []byte) bool {
-		found := false
+	return func(method, requestURI string, headers http.Header, body []byte) int {
+		found := 0
 		for _, relay := range c.Relays {
-			if v := relay.Relay(method, requestURI, headers, body); v {
-				found = true
+			if relay.Relay(method, requestURI, headers, body) {
+				found++
 			}
 		}
 

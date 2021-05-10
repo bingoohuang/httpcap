@@ -13,6 +13,10 @@ metricsKeys:
 relays:
   - addrs:
       - 127.0.0.1:5004
+    paths:
+      - key: licenseCode
+        # check it on http://xpather.com/
+        path: //field[@name='licenseCode']/text()
     conditions:
       - not: true
         methodPatterns:
