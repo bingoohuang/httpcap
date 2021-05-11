@@ -115,7 +115,7 @@ func parseBody(header http.Header, body io.ReadCloser, printBody bool) ([]byte, 
 		return data, len(data), err
 	}
 
-	return nil, tcpreader.DiscardBytesToEOF(r), nil
+	return []byte("(ignored)"), tcpreader.DiscardBytesToEOF(r), nil
 }
 
 func printRequest(r *http.Request) string {
