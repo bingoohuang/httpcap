@@ -35,7 +35,7 @@ func main() {
 		PrintVersion: *version,
 		VersionInfo:  "httpcap v0.0.1",
 		ConfTemplate: confTemplate,
-		ConfFileName: "conf.yml",
+		ConfFileName: "httpcap.yml",
 	}.ProcessInit()
 
 	golog.SetupLogrus()
