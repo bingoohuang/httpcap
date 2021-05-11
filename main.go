@@ -16,11 +16,13 @@ import (
 	"github.com/google/gopacket/tcpassembly"
 )
 
+const defaultConfFile = "httpcap.yml"
+
 // Build a simple HTTP request parser using tcpassembly.StreamFactory and tcpassembly.Stream interfaces
 func main() {
 	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	ifaces := f.String("i", "", "Interfaces to get packets or filename to read, default to loopback interface, comma separated for multiple")
-	confFile := f.String("c", "", "Filename of configuration in yaml format")
+	confFile := f.String("c", "", "Filename of configuration in yaml format, default to "+defaultConfFile)
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
 	printRspBody := f.Bool("resp", false, "Print HTTP response body")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")

@@ -29,7 +29,7 @@ type Conf struct {
 	Relays      []Replay `yaml:"relays"`
 }
 
-//go:embed assets/conf.yml
+//go:embed assets/httpcap.yml
 var confTemplate []byte
 
 // ReplayCondition is the condition which should be specified for replay requests.
@@ -255,15 +255,7 @@ func UnmarshalConfFile(confFile string) (*Conf, error) {
 
 // ParseConfFile parses conf yaml file and flags to *Conf.
 func ParseConfFile(confFile, ports, ifaces string) *Conf {
-	var err error
-	var conf *Conf
-
-	if confFile != "" {
-		if conf, err = UnmarshalConfFile(confFile); err != nil {
-			log.Fatal(err)
-		}
-	}
-
+	conf := loadConfFile(confFile)
 	if conf == nil {
 		conf = &Conf{}
 	}
@@ -286,6 +278,22 @@ func ParseConfFile(confFile, ports, ifaces string) *Conf {
 	log.Printf("Configuration: %s", confJSON)
 
 	conf.setup()
+
+	return conf
+}
+
+func loadConfFile(confFile string) *Conf {
+	if confFile == "" {
+		if s, err := os.Stat(defaultConfFile); err != nil || s.IsDir() {
+			return nil // not exists
+		}
+		confFile = defaultConfFile
+	}
+
+	conf, err := UnmarshalConfFile(confFile)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	return conf
 }
