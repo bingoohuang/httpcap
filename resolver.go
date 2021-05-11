@@ -35,7 +35,8 @@ type (
 
 	// RspReqPacketReader reads http response packet.
 	RspReqPacketReader struct {
-		buf *bufio.Reader
+		buf       *bufio.Reader
+		printBody bool
 	}
 	// Req is the rsp processor.
 	Req struct {
@@ -45,7 +46,8 @@ type (
 	}
 	// Rsp is the rsp processor.
 	Rsp struct {
-		Val *http.Response
+		Val       *http.Response
+		printBody bool
 	}
 )
 
@@ -64,7 +66,7 @@ func (r Req) Process() {
 
 	log.Printf("{PRE}Request: %s", printRequest(req))
 
-	body, bodyLen, err := parseBody(req.Header, req.Body)
+	body, bodyLen, err := parseBody(req.Header, req.Body, true)
 	relayCount := r.relayer(req.Method, req.RequestURI, req.Header, body)
 
 	if relayCount != 0 {
@@ -75,7 +77,7 @@ func (r Req) Process() {
 // Process processes the rsp.
 func (r Rsp) Process() {
 	log.Printf("{PRE}Response: %s", printResponse(r.Val))
-	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body)
+	body, bodyLen, err := parseBody(r.Val.Header, r.Val.Body, r.printBody)
 	log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
 }
 
@@ -95,10 +97,10 @@ func (r *RspReqPacketReader) Read() (PacketProcessor, error) {
 		return nil, err
 	}
 
-	return &Rsp{Val: resp}, nil
+	return &Rsp{Val: resp, printBody: r.printBody}, nil
 }
 
-func parseBody(header http.Header, body io.ReadCloser) ([]byte, int, error) {
+func parseBody(header http.Header, body io.ReadCloser, printBody bool) ([]byte, int, error) {
 	defer body.Close()
 
 	r, err := decompressBody(header, body)
@@ -108,7 +110,7 @@ func parseBody(header http.Header, body io.ReadCloser) ([]byte, int, error) {
 	}
 
 	ct := header.Get("Content-Type")
-	if contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
+	if printBody && contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		data, err := ioutil.ReadAll(r)
 		return data, len(data), err
 	}

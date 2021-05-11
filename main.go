@@ -22,7 +22,7 @@ func main() {
 	ifaces := f.String("i", "", "Interfaces to get packets or filename to read, default to loopback interface, comma separated for multiple")
 	confFile := f.String("c", "", "Filename of configuration in yaml format")
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
-	printRsp := f.Bool("resp", false, "Print HTTP response")
+	printRspBody := f.Bool("resp", false, "Print HTTP response body")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
 	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
 	version := f.Bool("v", false, "show version info and exit")
@@ -41,22 +41,22 @@ func main() {
 	conf := ParseConfFile(*confFile, *ports, *ifaces)
 	for _, iface := range conf.Ifaces {
 		for _, port := range conf.Ports {
-			handle := createPcapHandle(iface, port, *printRsp)
-			go process(handle, port, *logAllPackets, conf)
+			handle := createPcapHandle(iface, port)
+			go process(handle, port, *logAllPackets, *printRspBody, conf)
 		}
 	}
 
 	select {}
 }
 
-func process(handle *pcap.Handle, port int, logAllPackets bool, conf *Conf) {
+func process(handle *pcap.Handle, port int, logAllPackets, printRspBody bool, conf *Conf) {
 	log.Println("Reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	// Set up assembly
 	relayer := conf.createRequestReplayer()
-	factory := &httpStreamFactory{conf: conf, port: port, relayer: relayer}
+	factory := &httpStreamFactory{conf: conf, port: port, relayer: relayer, printBody: printRspBody}
 	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
 	for {
 		select {
@@ -82,13 +82,13 @@ func process(handle *pcap.Handle, port int, logAllPackets bool, conf *Conf) {
 	}
 }
 
-func createPcapHandle(name string, port int, printRsp bool) *pcap.Handle {
+func createPcapHandle(name string, port int) *pcap.Handle {
 	handle, err := pcapOpen(name)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := handle.SetBPFFilter(createFilter(printRsp, port)); err != nil {
+	if err := handle.SetBPFFilter(fmt.Sprintf("tcp and port %d", port)); err != nil {
 		log.Fatal(err)
 	}
 
@@ -104,12 +104,4 @@ func pcapOpen(name string) (*pcap.Handle, error) {
 
 	log.Printf("Starting capture on interface %q", name)
 	return pcap.OpenLive(name, 65535, false, pcap.BlockForever)
-}
-
-func createFilter(printRsp bool, port int) string {
-	if printRsp {
-		return fmt.Sprintf("tcp and port %d", port)
-	}
-
-	return fmt.Sprintf("tcp and dst port %d", port)
 }

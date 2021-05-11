@@ -1,6 +1,11 @@
 # httpcap
 
-http request/response recorder based on gopacket(tcpdump).
+http request/response recorder based on gopacket(libpcap).
+
+## install libpcap:
+
+1. for ubuntu/debian: `sudo aptitude install libcap-dev`
+1. for centos/redhat/fedora: `sudo yum install libpcap-devel`
 
 ## usage
 

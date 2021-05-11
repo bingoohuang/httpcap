@@ -13,9 +13,10 @@ import (
 
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
-	port    int
-	relayer requestRelayer
-	conf    *Conf
+	port      int
+	relayer   requestRelayer
+	conf      *Conf
+	printBody bool
 }
 
 // httpStream will handle the actual decoding of http requests.
@@ -24,7 +25,6 @@ type httpStream struct {
 	r              tcpreader.ReaderStream
 	port           string
 	relayer        requestRelayer
-	conf           *Conf
 }
 
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
@@ -34,26 +34,24 @@ func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream
 		transport: transport,
 		r:         tcpreader.NewReaderStream(),
 		relayer:   h.relayer,
-		conf:      h.conf,
 	}
-	go hs.run() // Important... we must guarantee that data from the reader stream is read.
+	go hs.run(h.conf, h.printBody) // Important... we must guarantee that data from the reader stream is read.
 
-	// ReaderStream implements tcpassembly.Stream, so we can return a pointer to it.
 	return &hs.r
 }
 
 const defaultMaxMemory = 32 << 20 // 32 MB
 
-func (h *httpStream) run() {
+func (h *httpStream) run(conf *Conf, printBody bool) {
 	buf := bufio.NewReader(&h.r)
 	src := fmt.Sprintf("%v", h.transport.Src())
 	log.Printf("Transport src: %s", src)
 
 	var resolver PacketReader
 	if src == h.port {
-		resolver = &RspReqPacketReader{buf: buf}
+		resolver = &RspReqPacketReader{buf: buf, printBody: printBody}
 	} else {
-		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer, conf: h.conf}
+		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer, conf: conf}
 	}
 
 	for {
