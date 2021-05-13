@@ -2,8 +2,8 @@ github.com/antchfx/xmlquery v1.3.6 h1:kaEVzH1mNo/2AJZrhZjAaAUTy2Nn2zxGfYYU8jWfXO
 github.com/antchfx/xmlquery v1.3.6/go.mod h1:64w0Xesg2sTaawIdNqMB+7qaW/bSqkQm+ssPaCMWNnc=
 github.com/antchfx/xpath v1.1.10 h1:cJ0pOvEdN/WvYXxvRrzQH9x5QWKpzHacYO8qzCcDYAg=
 github.com/antchfx/xpath v1.1.10/go.mod h1:Yee4kTMuNiPYJ7nSNorELQMr1J33uOpXDMByNYhvtNk=
-github.com/bingoohuang/gg v0.0.0-20210505124109-2bb549e286c3 h1:sxrzc1Z3/M3SFIn2D8lhOKFIQjn6R0wWk6Oe7ZQ6Ypg=
-github.com/bingoohuang/gg v0.0.0-20210505124109-2bb549e286c3/go.mod h1:kKNUAtRrABOvh5ztjh9Q5qtJBkx0sxwCHBQDBgWPhbw=
+github.com/bingoohuang/gg v0.0.0-20210513033820-e15691d42dc5 h1:6q6a2ICazNKLOoCqh6hf4xqvL0Pn+fpuBBLsBx4YZiA=
+github.com/bingoohuang/gg v0.0.0-20210513033820-e15691d42dc5/go.mod h1:kKNUAtRrABOvh5ztjh9Q5qtJBkx0sxwCHBQDBgWPhbw=
 github.com/bingoohuang/ginx v0.0.0-20200729033750-047869f5e81c/go.mod h1:fv5fKhsGUfPInVsslF5FJv2oNlZn153C5OogaaUFvFc=
 github.com/bingoohuang/golog v0.0.0-20210108044104-f2ce059bbd2e/go.mod h1:Spoz6xZ5os4HNHOor3Dah72S8FQZilB/A54vezzbF4I=
 github.com/bingoohuang/golog v0.0.0-20210414055530-082be12454ee h1:3Mk8ZxtFYqfU3DNJBRGAyqJDKZl5kcys/gzXczcS7JA=

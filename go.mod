@@ -4,7 +4,7 @@ go 1.16
 
 require (
 	github.com/antchfx/xmlquery v1.3.6
-	github.com/bingoohuang/gg v0.0.0-20210505124109-2bb549e286c3
+	github.com/bingoohuang/gg v0.0.0-20210513033820-e15691d42dc5
 	github.com/bingoohuang/golog v0.0.0-20210414055530-082be12454ee
 	github.com/bingoohuang/gometrics v0.0.0-20210225060832-5eb837d18e8c
 	github.com/bingoohuang/jj v0.0.0-20210510053147-220ad64d552c

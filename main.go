@@ -1,6 +1,7 @@
 package main
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -15,6 +16,10 @@ import (
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
 )
+
+//go:embed initassets
+//go:embed initassets/.env
+var initAssets embed.FS
 
 const defaultConfFile = "httpcap.yml"
 
@@ -33,9 +38,8 @@ func main() {
 	ctl.Config{
 		Initing:      *initing,
 		PrintVersion: *version,
-		VersionInfo:  "httpcap v0.0.1",
-		ConfTemplate: confTemplate,
-		ConfFileName: "httpcap.yml",
+		VersionInfo:  "httpcap v0.0.2",
+		InitFiles:    initAssets,
 	}.ProcessInit()
 
 	golog.SetupLogrus()

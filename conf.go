@@ -29,9 +29,6 @@ type Conf struct {
 	Relays      []Replay `yaml:"relays"`
 }
 
-//go:embed assets/httpcap.yml
-var confTemplate []byte
-
 // ReplayCondition is the condition which should be specified for replay requests.
 type ReplayCondition struct {
 	MethodPatterns []string `yaml:"methodPatterns"`
