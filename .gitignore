@@ -21,3 +21,5 @@ vendor
 /conf.yml
 /ctl
 /relay_error.log*
+/.env
+/httpcap.yml
