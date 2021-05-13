@@ -81,6 +81,7 @@ Content-Type: application/json; charset=utf-8
 
 ## resources
 
+1. [capturing and replaying live HTTP traffic](https://github.com/buger/goreplay)
 1. [tcpdump](https://danielmiessler.com/study/tcpdump/)
 1. [gopacket exapmle httpassembly](https://github.com/google/gopacket/blob/master/examples/httpassembly/main.go)
 1. [基于Go Packet实现网络数据包的捕获与分析](https://cloud.tencent.com/developer/article/1025427)
