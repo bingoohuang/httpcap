@@ -4,7 +4,7 @@ http request/response recorder based on gopacket(libpcap).
 
 ## install libpcap:
 
-1. for ubuntu/debian: `sudo aptitude install libcap-dev`
+1. for ubuntu/debian: `sudo aptitude install libpcap-devel`
 1. for centos/redhat/fedora: `sudo yum install libpcap-devel`
 
 ## usage
@@ -81,6 +81,7 @@ Content-Type: application/json; charset=utf-8
 
 ## resources
 
+1. [A cross platform http sniffer with a web UI](https://github.com/ga0/netgraph)
 1. [capturing and replaying live HTTP traffic](https://github.com/buger/goreplay)
 1. [tcpdump](https://danielmiessler.com/study/tcpdump/)
 1. [gopacket exapmle httpassembly](https://github.com/google/gopacket/blob/master/examples/httpassembly/main.go)
