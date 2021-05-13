@@ -4,8 +4,9 @@ http request/response recorder based on gopacket(libpcap).
 
 ## install libpcap:
 
-1. for ubuntu/debian: `sudo aptitude install libpcap-devel`
-1. for centos/redhat/fedora: `sudo yum install libpcap-devel`
+1. `sudo apt-get install libpcap-dev`
+1. for ubuntu/debian: `sudo aptitude install libpcap-dev`
+1. for centos/redhat/fedora: `sudo yum install libpcap-dev`
 
 ## usage
 
