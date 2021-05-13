@@ -26,7 +26,7 @@ func main() {
 	ports := f.String("p", "", "TCP ports, comma separated for multiple")
 	printRspBody := f.Bool("resp", false, "Print HTTP response body")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
-	initing := f.Bool("init", false, "init sample conf.yaml/ctl and then exit")
+	initing := f.Bool("init", false, "init sample httpcap.yml/ctl/.env and then exit")
 	version := f.Bool("v", false, "show version info and exit")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
 
