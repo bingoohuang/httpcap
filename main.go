@@ -38,7 +38,7 @@ func main() {
 	ctl.Config{
 		Initing:      *initing,
 		PrintVersion: *version,
-		VersionInfo:  "httpcap v0.0.2",
+		VersionInfo:  "httpcap v0.0.3",
 		InitFiles:    initAssets,
 	}.ProcessInit()
 
@@ -94,7 +94,7 @@ func createPcapHandle(name string, port int) *pcap.Handle {
 		log.Fatal(err)
 	}
 
-	if err := handle.SetBPFFilter(fmt.Sprintf("tcp and port %d", port)); err != nil {
+	if err := handle.SetBPFFilter(fmt.Sprintf("tcp and dst port %d", port)); err != nil {
 		log.Fatal(err)
 	}
 
@@ -109,5 +109,5 @@ func pcapOpen(name string) (*pcap.Handle, error) {
 	}
 
 	log.Printf("Starting capture on interface %q", name)
-	return pcap.OpenLive(name, 65535, false, pcap.BlockForever)
+	return pcap.OpenLive(name, 1024*1024, false, pcap.BlockForever)
 }
