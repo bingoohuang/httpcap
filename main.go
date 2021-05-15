@@ -37,7 +37,7 @@ func main() {
 	ctl.Config{
 		Initing:      *initing,
 		PrintVersion: *version,
-		VersionInfo:  "httpcap v0.0.3",
+		VersionInfo:  "httpcap v0.0.6",
 		InitFiles:    initAssets,
 	}.ProcessInit()
 
@@ -61,7 +61,8 @@ func process(handle *pcap.Handle, bpf string, logAllPackets, printRspBody bool, 
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	// Set up assembly
 	relayer := conf.createRequestReplayer()
-	factory := &httpStreamFactory{conf: conf, bpf: bpf, relayer: relayer, printBody: printRspBody}
+	factory := &httpStreamFactory{conf: conf, bpf: bpf, relayer: relayer,
+		printBody: printRspBody, uniStreams: NewUniStreams()}
 	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
 	for {
 		select {
