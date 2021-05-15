@@ -4,7 +4,7 @@ ifaces:
   - any
 
 bpfs:
-  - "tcp and dst host 192.158.77.11 and dst port 9000"
+  - "tcp and dst host 192.158.77.11 and dst port 9090"
 
 metricsKeys:
   - httpcap

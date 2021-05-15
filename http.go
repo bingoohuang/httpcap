@@ -45,14 +45,14 @@ const defaultMaxMemory = 32 << 20 // 32 MB
 
 func (h *httpStream) run(conf *Conf, printBody bool) {
 	buf := bufio.NewReader(&h.r)
-	src := fmt.Sprintf("%v", h.transport.Src())
-	log.Printf("Transport src: %s", src)
+	dst := fmt.Sprintf("%v", h.transport.Dst())
+	log.Printf("Transport dst: %s", dst)
 
 	var resolver PacketReader
-	if strings.Contains(h.bpf, src) {
-		resolver = &RspReqPacketReader{buf: buf, printBody: printBody}
-	} else {
+	if strings.Contains(h.bpf, dst) {
 		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer, conf: conf}
+	} else {
+		resolver = &RspReqPacketReader{buf: buf, printBody: printBody}
 	}
 
 	for {
