@@ -3,8 +3,8 @@
 ifaces:
   - any
 
-ports:
-  - 5003
+bpfs:
+  - "tcp and dst host 192.158.77.11 and dst port 9000"
 
 metricsKeys:
   - httpcap

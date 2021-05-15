@@ -3,7 +3,6 @@ package main
 import (
 	"embed"
 	"flag"
-	"fmt"
 	"log"
 	"os"
 	"time"
@@ -28,7 +27,7 @@ func main() {
 	f := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
 	ifaces := f.String("i", "", "Interfaces to get packets or filename to read, default to loopback interface, comma separated for multiple")
 	confFile := f.String("c", "", "Filename of configuration in yaml format, default to "+defaultConfFile)
-	ports := f.String("p", "", "TCP ports, comma separated for multiple")
+	bpf := f.String("bpf", "", "bpf like 'dst host 192.158.77.11 and dst port 9000'")
 	printRspBody := f.Bool("resp", false, "Print HTTP response body")
 	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
 	initing := f.Bool("init", false, "init sample httpcap.yml/ctl/.env and then exit")
@@ -44,25 +43,25 @@ func main() {
 
 	golog.SetupLogrus()
 
-	conf := ParseConfFile(*confFile, *ports, *ifaces)
+	conf := ParseConfFile(*confFile, *bpf, *ifaces)
 	for _, iface := range conf.Ifaces {
-		for _, port := range conf.Ports {
-			handle := createPcapHandle(iface, port)
-			go process(handle, port, *logAllPackets, *printRspBody, conf)
+		for _, b := range conf.Bpfs {
+			handle := createPcapHandle(iface, b)
+			go process(handle, b, *logAllPackets, *printRspBody, conf)
 		}
 	}
 
 	select {}
 }
 
-func process(handle *pcap.Handle, port int, logAllPackets, printRspBody bool, conf *Conf) {
+func process(handle *pcap.Handle, bpf string, logAllPackets, printRspBody bool, conf *Conf) {
 	log.Println("Reading in packets")
 	ticker := time.Tick(time.Minute)
 	// Read in packets, pass to assembler.
 	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	// Set up assembly
 	relayer := conf.createRequestReplayer()
-	factory := &httpStreamFactory{conf: conf, port: port, relayer: relayer, printBody: printRspBody}
+	factory := &httpStreamFactory{conf: conf, bpf: bpf, relayer: relayer, printBody: printRspBody}
 	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
 	for {
 		select {
@@ -88,13 +87,13 @@ func process(handle *pcap.Handle, port int, logAllPackets, printRspBody bool, co
 	}
 }
 
-func createPcapHandle(name string, port int) *pcap.Handle {
+func createPcapHandle(name, bpf string) *pcap.Handle {
 	handle, err := pcapOpen(name)
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	if err := handle.SetBPFFilter(fmt.Sprintf("tcp and dst port %d", port)); err != nil {
+	if err := handle.SetBPFFilter(bpf); err != nil {
 		log.Fatal(err)
 	}
 

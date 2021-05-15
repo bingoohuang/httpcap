@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"strings"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/tcpassembly"
@@ -13,7 +14,7 @@ import (
 
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
-	port      int
+	bpf       string
 	relayer   requestRelayer
 	conf      *Conf
 	printBody bool
@@ -23,13 +24,13 @@ type httpStreamFactory struct {
 type httpStream struct {
 	net, transport gopacket.Flow
 	r              tcpreader.ReaderStream
-	port           string
+	bpf            string
 	relayer        requestRelayer
 }
 
 func (h *httpStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
 	hs := &httpStream{
-		port:      fmt.Sprintf("%d", h.port),
+		bpf:       fmt.Sprintf("%d", h.bpf),
 		net:       net,
 		transport: transport,
 		r:         tcpreader.NewReaderStream(),
@@ -48,7 +49,7 @@ func (h *httpStream) run(conf *Conf, printBody bool) {
 	log.Printf("Transport src: %s", src)
 
 	var resolver PacketReader
-	if src == h.port {
+	if strings.Contains(h.bpf, src) {
 		resolver = &RspReqPacketReader{buf: buf, printBody: printBody}
 	} else {
 		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer, conf: conf}

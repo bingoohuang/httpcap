@@ -24,7 +24,7 @@ import (
 // Conf defines the structure to unmrshal the configuration yaml file.
 type Conf struct {
 	Ifaces      []string `yaml:"ifaces"`
-	Ports       []int    `yaml:"ports"`
+	Bpfs        []string `yaml:"bpfs"`
 	MetricsKeys []string `yaml:"metricsKeys"`
 	Relays      []Replay `yaml:"relays"`
 }
@@ -251,21 +251,21 @@ func UnmarshalConfFile(confFile string) (*Conf, error) {
 }
 
 // ParseConfFile parses conf yaml file and flags to *Conf.
-func ParseConfFile(confFile, ports, ifaces string) *Conf {
+func ParseConfFile(confFile, bpf, ifaces string) *Conf {
 	conf := loadConfFile(confFile)
 	if conf == nil {
 		conf = &Conf{}
-	}
-
-	if ports != "" {
-		conf.Ports = SplitInt(ports)
 	}
 
 	if ifaces != "" {
 		conf.Ifaces = Split(ifaces)
 	}
 
-	if len(conf.Ports) == 0 {
+	if bpf != "" {
+		conf.Bpfs = []string{bpf}
+	}
+
+	if len(conf.Bpfs) == 0 {
 		log.Fatal("At least one TCP port should be specified")
 	}
 
