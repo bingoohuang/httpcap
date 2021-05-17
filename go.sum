@@ -8,8 +8,8 @@ github.com/bingoohuang/ginx v0.0.0-20200729033750-047869f5e81c/go.mod h1:fv5fKhs
 github.com/bingoohuang/golog v0.0.0-20210108044104-f2ce059bbd2e/go.mod h1:Spoz6xZ5os4HNHOor3Dah72S8FQZilB/A54vezzbF4I=
 github.com/bingoohuang/golog v0.0.0-20210414055530-082be12454ee h1:3Mk8ZxtFYqfU3DNJBRGAyqJDKZl5kcys/gzXczcS7JA=
 github.com/bingoohuang/golog v0.0.0-20210414055530-082be12454ee/go.mod h1:NMB5RiZQOln+BwIoHZIaA1XYmdrE4lvTfwTrT7Vx8Hs=
-github.com/bingoohuang/gometrics v0.0.0-20210517022725-7d812c0031d2 h1:TsZpsIvRMRQLx2hMqIhXaSblKGDh8AkGbFVgob06Gmw=
-github.com/bingoohuang/gometrics v0.0.0-20210517022725-7d812c0031d2/go.mod h1:WhP0FuuAEUAP50acep6p+OU/na3xWQcOD6uw7pGRVXs=
+github.com/bingoohuang/gometrics v0.0.0-20210517051741-94ce21a1239a h1:p0pKwD2bw5MorzhOP/ts8Rj08SS5EeIJPmNiYSmjgFw=
+github.com/bingoohuang/gometrics v0.0.0-20210517051741-94ce21a1239a/go.mod h1:WhP0FuuAEUAP50acep6p+OU/na3xWQcOD6uw7pGRVXs=
 github.com/bingoohuang/jj v0.0.0-20210510053147-220ad64d552c h1:zmeFPI9Xmx2OP7r1A3UaqRiBpY1sl1f9bzcpEPc8B/I=
 github.com/bingoohuang/jj v0.0.0-20210510053147-220ad64d552c/go.mod h1:bWJgpCAKIq/UOMbGxmZlOjU2JZfHhta8XVw5ztrVWRM=
 github.com/bingoohuang/sariaf v0.0.0-20201222043148-21fd9703b115/go.mod h1:DSi1LVR76Ap189KzzA40C8pFSpRZHsy/n+kgK8ihfhs=
