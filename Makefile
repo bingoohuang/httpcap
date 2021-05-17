@@ -73,6 +73,8 @@ dockerinstall:
 targz:
 	cd .. && rm -f httpcap.tar.gz && tar czvf httpcap.tar.gz --exclude .git --exclude .idea httpcap
 
+static:
+	CGO_ENABLED=1 go build -a -tags netgo -ldflags '-w -s -extldflags "-static"' .
 
 run:
 	sudo GOLOG_STDOUT=true httpcap -c assets/conf.yml -resp
