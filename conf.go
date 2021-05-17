@@ -113,9 +113,7 @@ func (r *Replay) Relay(method string, uri string, header http.Header, body []byt
 		return false
 	}
 
-	pairs := map[string]string{
-		"X-Httpcap-Replay": "true",
-	}
+	pairs := map[string]string{XHttpCapRelay: "true"}
 	for k, v := range header {
 		pairs[k] = v[0]
 	}
@@ -220,14 +218,16 @@ func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
 // return -1: no relays defined, or number of replays applied.
 type requestReplayer func(method, requestURI string, headers http.Header, body []byte) int
 
+const XHttpCapRelay = "X-Httpcap-Replay"
+
 func (c *Conf) createRequestReplayer() requestReplayer {
 	if len(c.Relays) == 0 {
 		return func(_, _ string, _ http.Header, _ []byte) int { return -1 }
 	}
 
 	return func(method, requestURI string, header http.Header, body []byte) int {
-		if header.Get("X-Httpcap-Replay") == "true" {
-			log.Printf("X-Httpcap-Repla = true, ignored")
+		if header.Get(XHttpCapRelay) == "true" {
+			log.Printf("%s = true, ignored", XHttpCapRelay)
 			return 1
 		}
 
