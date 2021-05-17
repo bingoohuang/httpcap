@@ -13,11 +13,11 @@ import (
 
 	"github.com/bingoohuang/gg/pkg/ctl"
 	"github.com/bingoohuang/golog"
-
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
+	_ "net/http/pprof" // Comment this line to disable pprof endpoint.
 )
 
 //go:embed initassets
