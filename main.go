@@ -3,8 +3,11 @@ package main
 import (
 	"embed"
 	"flag"
+	"fmt"
 	"log"
+	"net/http"
 	"os"
+	"strings"
 	"sync"
 	"time"
 
@@ -32,6 +35,7 @@ func main() {
 	printRspBody := f.Bool("resp", false, "Print HTTP response body")
 	initing := f.Bool("init", false, "init sample httpcap.yml/ctl/.env and then exit")
 	version := f.Bool("v", false, "show version info and exit")
+	pprofAddr := f.String("pprof", "", "pprof address to listen on, not activate pprof if empty, eg localhost:6060")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
 
 	ctl.Config{
@@ -40,6 +44,8 @@ func main() {
 		VersionInfo:  "httpcap v0.0.7",
 		InitFiles:    initAssets,
 	}.ProcessInit()
+
+	setupPprof(*pprofAddr)
 
 	golog.SetupLogrus()
 
@@ -53,6 +59,26 @@ func main() {
 	}
 
 	wg.Wait()
+}
+
+func setupPprof(pprofAddr string) {
+	if pprofAddr == "" {
+		return
+	}
+
+	pprofHostPort := pprofAddr
+	parts := strings.Split(pprofHostPort, ":")
+	if len(parts) == 2 && parts[0] == "" {
+		pprofHostPort = fmt.Sprintf("localhost:%s", parts[1])
+	}
+	pprofHostPort = "http://" + pprofHostPort + "/debug/pprof"
+	log.Printf("I! Starting pprof HTTP server at: %s", pprofHostPort)
+
+	go func() {
+		if err := http.ListenAndServe(pprofAddr, nil); err != nil {
+			log.Fatal("E! " + err.Error())
+		}
+	}()
 }
 
 func process(wg *sync.WaitGroup, handle *pcap.Handle, printRspBody bool, conf *Conf) {
