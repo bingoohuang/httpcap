@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/bingoohuang/gg/pkg/ctl"
-	"github.com/bingoohuang/golog"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
@@ -47,7 +46,7 @@ func main() {
 
 	setupPprof(*pprofAddr)
 
-	golog.SetupLogrus()
+	//golog.SetupLogrus()
 
 	conf := ParseConfFile(*confFile, *bpf, *ifaces)
 	var wg sync.WaitGroup

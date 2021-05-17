@@ -110,7 +110,7 @@ func parseBody(header http.Header, body io.ReadCloser, printBody bool) ([]byte, 
 	}
 
 	ct := header.Get("Content-Type")
-	if printBody || contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
+	if printBody && contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		data, err := ioutil.ReadAll(r)
 		return data, len(data), err
 	}
