@@ -227,6 +227,7 @@ func (c *Conf) createRequestReplayer() requestReplayer {
 
 	return func(method, requestURI string, header http.Header, body []byte) int {
 		if header.Get("X-Httpcap-Replay") == "true" {
+			log.Printf("X-Httpcap-Repla = true, ignored")
 			return 1
 		}
 
