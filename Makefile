@@ -71,7 +71,7 @@ dockerinstall:
 	go build -v -x -a -ldflags '-s -w -extldflags "-static"'
 
 targz:
-	cd .. && tar czvf httpcap.tar.gz --exclude .git --exclude .idea httpcap
+	cd .. && rm -f httpcap.tar.gz && tar czvf httpcap.tar.gz --exclude .git --exclude .idea httpcap
 
 
 run:

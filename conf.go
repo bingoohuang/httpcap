@@ -108,13 +108,19 @@ type RecordFail struct {
 }
 
 // Relay relays the http requests.
-func (r *Replay) Relay(method string, uri string, headers http.Header, body []byte) (matches bool) {
-	if !r.Matches(method, uri, headers) {
+func (r *Replay) Relay(method string, uri string, header http.Header, body []byte) (matches bool) {
+	if header.Get("X-Httpcap-Replay") == "true" {
 		return false
 	}
 
-	pairs := make(map[string]string)
-	for k, v := range headers {
+	if !r.Matches(method, uri, header) {
+		return false
+	}
+
+	pairs := map[string]string{
+		"X-Httpcap-Replay": "true",
+	}
+	for k, v := range header {
 		pairs[k] = v[0]
 	}
 
@@ -137,7 +143,7 @@ func (r *Replay) Relay(method string, uri string, headers http.Header, body []by
 		return true
 	}
 
-	vm := r.recordReqValues(headers, body)
+	vm := r.recordReqValues(header, body)
 	vmJSON, _ := json.Marshal(struct {
 		Time   string
 		Keys   map[string]string
