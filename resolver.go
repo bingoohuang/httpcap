@@ -15,41 +15,41 @@ import (
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 )
 
-type (
-	// PacketProcessor defines the http packet processor interface.
-	PacketProcessor interface {
-		Process()
-	}
+// PacketProcessor defines the http packet processor interface.
+type PacketProcessor interface {
+	Process()
+}
 
-	// PacketReader reads http packet.
-	PacketReader interface {
-		Read() (PacketProcessor, error)
-	}
+// PacketReader reads http packet.
+type PacketReader interface {
+	Read() (PacketProcessor, error)
+}
 
-	// RequestPacketReader reads http request packet.
-	RequestPacketReader struct {
-		buf      *bufio.Reader
-		replayer requestReplayer
-		conf     *Conf
-	}
+// RequestReader reads http request packet.
+type RequestReader struct {
+	buf      *bufio.Reader
+	replayer requestReplayer
+	conf     *Conf
+}
 
-	// ResponsePacketReader reads http response packet.
-	ResponsePacketReader struct {
-		buf       *bufio.Reader
-		printBody bool
-	}
-	// Req is the rsp processor.
-	Req struct {
-		Val      *http.Request
-		replayer requestReplayer
-		conf     *Conf
-	}
-	// Rsp is the rsp processor.
-	Rsp struct {
-		Val       *http.Response
-		printBody bool
-	}
-)
+// ResponseReader reads http response packet.
+type ResponseReader struct {
+	buf       *bufio.Reader
+	printBody bool
+}
+
+// Req is the rsp processor.
+type Req struct {
+	Val      *http.Request
+	replayer requestReplayer
+	conf     *Conf
+}
+
+// Rsp is the rsp processor.
+type Rsp struct {
+	Val       *http.Response
+	printBody bool
+}
 
 // Process processes the req.
 func (r Req) Process() {
@@ -82,7 +82,7 @@ func (r Rsp) Process() {
 }
 
 // Read reads a request.
-func (r *RequestPacketReader) Read() (PacketProcessor, error) {
+func (r *RequestReader) Read() (PacketProcessor, error) {
 	req, err := http.ReadRequest(r.buf)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (r *RequestPacketReader) Read() (PacketProcessor, error) {
 	return &Req{Val: req, replayer: r.replayer, conf: r.conf}, nil
 }
 
-func (r *ResponsePacketReader) Read() (PacketProcessor, error) {
+func (r *ResponseReader) Read() (PacketProcessor, error) {
 	resp, err := http.ReadResponse(r.buf, nil)
 	if err != nil {
 		return nil, err

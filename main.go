@@ -47,21 +47,20 @@ func main() {
 	var wg sync.WaitGroup
 	for _, iface := range conf.Ifaces {
 		for _, b := range conf.Bpfs {
-			handle := createPcapHandle(iface, b)
 			wg.Add(1)
-			go process(&wg, handle, b, *printRspBody, conf)
+			go process(&wg, createPcapHandle(iface, b), *printRspBody, conf)
 		}
 	}
 
 	wg.Wait()
 }
 
-func process(wg *sync.WaitGroup, handle *pcap.Handle, bpf string, printRspBody bool, conf *Conf) {
+func process(wg *sync.WaitGroup, handle *pcap.Handle, printRspBody bool, conf *Conf) {
 	log.Println("Reading in packets")
 	defer wg.Done()
 
 	replayer := conf.createRequestReplayer()
-	factory := &httpStreamFactory{conf: conf, bpf: bpf, replayer: replayer, printBody: printRspBody}
+	factory := &httpStreamFactory{conf: conf, replayer: replayer, printBody: printRspBody}
 	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
 	loop(as, handle)
 	as.FlushAll()
