@@ -110,5 +110,5 @@ func pcapOpen(name string) (*pcap.Handle, error) {
 	}
 
 	log.Printf("Starting capture on interface %q", name)
-	return pcap.OpenLive(name, 1024*1024, false, pcap.BlockForever)
+	return pcap.OpenLive(name, 65535, false, pcap.BlockForever)
 }
