@@ -311,6 +311,11 @@ func (c *Conf) fixIfaces() {
 			return
 		}
 
+		if _, err := os.Stat(ifa); err == nil {
+			usedIfaces = append(usedIfaces, ifa)
+			continue
+		}
+
 		if availIfaces == nil {
 			availIfaces = ListIfaces()
 		}

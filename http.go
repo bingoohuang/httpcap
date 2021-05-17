@@ -8,50 +8,14 @@ import (
 	"github.com/google/gopacket/tcpassembly/tcpreader"
 	"io"
 	"log"
-	"sync"
 )
-
-type StreamKey struct {
-	NetFlow, TcpFlow gopacket.Flow
-}
-
-type UniStreams struct {
-	Map  map[StreamKey]bool
-	Lock sync.Mutex
-}
-
-func NewUniStreams() *UniStreams {
-	return &UniStreams{Map: make(map[StreamKey]bool)}
-}
-
-func (u *UniStreams) Check(netFlow, tcpFlow gopacket.Flow) (func(), bool) {
-	reverseKey := StreamKey{NetFlow: netFlow.Reverse(), TcpFlow: tcpFlow.Reverse()}
-
-	u.Lock.Lock()
-	if _, ok := u.Map[reverseKey]; ok {
-		delete(u.Map, reverseKey)
-		u.Lock.Unlock()
-		return func() {}, true
-	}
-
-	key := StreamKey{NetFlow: netFlow, TcpFlow: tcpFlow}
-	u.Map[key] = true
-	u.Lock.Unlock()
-
-	return func() {
-		u.Lock.Lock()
-		delete(u.Map, key)
-		u.Lock.Unlock()
-	}, false
-}
 
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
-	bpf        string
-	relayer    requestRelayer
-	conf       *Conf
-	printBody  bool
-	uniStreams *UniStreams
+	bpf       string
+	replayer  requestRelayer
+	conf      *Conf
+	printBody bool
 }
 
 // httpStream will handle the actual decoding of http requests.
@@ -65,31 +29,30 @@ func (h *httpStreamFactory) New(netFlow, tcpFlow gopacket.Flow) tcpassembly.Stre
 	hs := &httpStream{
 		bpf:     fmt.Sprintf("%d", h.bpf),
 		r:       tcpreader.NewReaderStream(),
-		relayer: h.relayer,
+		relayer: h.replayer,
 	}
-	go hs.run(h.uniStreams, netFlow, tcpFlow, h.conf, h.printBody) // Important... we must guarantee that data from the reader stream is read.
+	go hs.run(netFlow, tcpFlow, h.conf, h.printBody) // Important... we must guarantee that data from the reader stream is read.
 
 	return &hs.r
 }
 
 const defaultMaxMemory = 32 << 20 // 32 MB
 
-func (h *httpStream) run(uniStreams *UniStreams, netFlow, tcpFlow gopacket.Flow, conf *Conf, printBody bool) {
+func (h *httpStream) run(netFlow, tcpFlow gopacket.Flow, conf *Conf, printBody bool) {
 	buf := bufio.NewReader(&h.r)
-	dst := fmt.Sprintf("%v", tcpFlow.Dst())
-	log.Printf("Transport dst: %s", dst)
+	log.Printf("Start to [%s:%s]", netFlow, tcpFlow)
+
+	peek, _ := buf.Peek(5)
 
 	var resolver PacketReader
-	f, ok := uniStreams.Check(netFlow, tcpFlow)
-	if ok {
-		resolver = &RspReqPacketReader{buf: buf, printBody: printBody}
+
+	if string(peek) == "HTTP/" {
+		resolver = &ResponsePacketReader{buf: buf, printBody: printBody}
 	} else {
-		resolver = &ReqPacketReader{buf: buf, relayer: h.relayer, conf: conf}
-		defer f()
+		resolver = &RequestPacketReader{buf: buf, relayer: h.relayer, conf: conf}
 	}
 
 	for {
-		log.Printf("Start to [%s:%s]", netFlow, tcpFlow)
 		r, err := resolver.Read()
 		if err == io.EOF || err == io.ErrUnexpectedEOF {
 			log.Printf("EOF [%s:%s]", netFlow, tcpFlow)

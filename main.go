@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/bingoohuang/gg/pkg/ctl"
@@ -29,7 +30,6 @@ func main() {
 	confFile := f.String("c", "", "Filename of configuration in yaml format, default to "+defaultConfFile)
 	bpf := f.String("bpf", "", "bpf like 'dst host 192.158.77.11 and dst port 9000'")
 	printRspBody := f.Bool("resp", false, "Print HTTP response body")
-	logAllPackets := f.Bool("V", false, "Logs every packet in great detail")
 	initing := f.Bool("init", false, "init sample httpcap.yml/ctl/.env and then exit")
 	version := f.Bool("v", false, "show version info and exit")
 	_ = f.Parse(os.Args[1:]) // Ignore errors; f is set for ExitOnError.
@@ -37,47 +37,48 @@ func main() {
 	ctl.Config{
 		Initing:      *initing,
 		PrintVersion: *version,
-		VersionInfo:  "httpcap v0.0.6",
+		VersionInfo:  "httpcap v0.0.7",
 		InitFiles:    initAssets,
 	}.ProcessInit()
 
 	golog.SetupLogrus()
 
 	conf := ParseConfFile(*confFile, *bpf, *ifaces)
+	var wg sync.WaitGroup
 	for _, iface := range conf.Ifaces {
 		for _, b := range conf.Bpfs {
 			handle := createPcapHandle(iface, b)
-			go process(handle, b, *logAllPackets, *printRspBody, conf)
+			wg.Add(1)
+			go process(&wg, handle, b, *printRspBody, conf)
 		}
 	}
 
-	select {}
+	wg.Wait()
 }
 
-func process(handle *pcap.Handle, bpf string, logAllPackets, printRspBody bool, conf *Conf) {
+func process(wg *sync.WaitGroup, handle *pcap.Handle, bpf string, printRspBody bool, conf *Conf) {
 	log.Println("Reading in packets")
-	ticker := time.Tick(time.Minute)
-	// Read in packets, pass to assembler.
-	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
-	// Set up assembly
-	relayer := conf.createRequestReplayer()
-	factory := &httpStreamFactory{conf: conf, bpf: bpf, relayer: relayer,
-		printBody: printRspBody, uniStreams: NewUniStreams()}
+	defer wg.Done()
+
+	replayer := conf.createRequestReplayer()
+	factory := &httpStreamFactory{conf: conf, bpf: bpf, replayer: replayer, printBody: printRspBody}
 	as := tcpassembly.NewAssembler(tcpassembly.NewStreamPool(factory))
+	loop(as, handle)
+	as.FlushAll()
+}
+
+func loop(as *tcpassembly.Assembler, handle *pcap.Handle) {
+	ticker := time.Tick(time.Minute)
+	packets := gopacket.NewPacketSource(handle, handle.LinkType()).Packets()
 	for {
 		select {
 		case p := <-packets:
 			if p == nil { // A nil packet indicates the end of a pcap file.
 				return
 			}
-			if logAllPackets {
-				log.Println(p)
-			}
 
-			pn := p.NetworkLayer()
-			pt := p.TransportLayer()
+			pn, pt := p.NetworkLayer(), p.TransportLayer()
 			if pn == nil || pt == nil || pt.LayerType() != layers.LayerTypeTCP {
-				log.Println("Unusable packet")
 				continue
 			}
 			as.AssembleWithTimestamp(pn.NetworkFlow(), pt.(*layers.TCP), p.Metadata().Timestamp)

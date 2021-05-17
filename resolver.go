@@ -26,15 +26,15 @@ type (
 		Read() (PacketProcessor, error)
 	}
 
-	// ReqPacketReader reads http request packet.
-	ReqPacketReader struct {
+	// RequestPacketReader reads http request packet.
+	RequestPacketReader struct {
 		buf     *bufio.Reader
 		relayer requestRelayer
 		conf    *Conf
 	}
 
-	// RspReqPacketReader reads http response packet.
-	RspReqPacketReader struct {
+	// ResponsePacketReader reads http response packet.
+	ResponsePacketReader struct {
 		buf       *bufio.Reader
 		printBody bool
 	}
@@ -82,7 +82,7 @@ func (r Rsp) Process() {
 }
 
 // Read reads a request.
-func (r *ReqPacketReader) Read() (PacketProcessor, error) {
+func (r *RequestPacketReader) Read() (PacketProcessor, error) {
 	req, err := http.ReadRequest(r.buf)
 	if err != nil {
 		return nil, err
@@ -91,7 +91,7 @@ func (r *ReqPacketReader) Read() (PacketProcessor, error) {
 	return &Req{Val: req, relayer: r.relayer, conf: r.conf}, nil
 }
 
-func (r *RspReqPacketReader) Read() (PacketProcessor, error) {
+func (r *ResponsePacketReader) Read() (PacketProcessor, error) {
 	resp, err := http.ReadResponse(r.buf, nil)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func parseBody(header http.Header, body io.ReadCloser, printBody bool) ([]byte, 
 	}
 
 	ct := header.Get("Content-Type")
-	if printBody && contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
+	if printBody || contains(ct, "application/json", "application/xml", "text/html", "text/plain") {
 		data, err := ioutil.ReadAll(r)
 		return data, len(data), err
 	}
