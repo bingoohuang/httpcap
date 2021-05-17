@@ -109,10 +109,6 @@ type RecordFail struct {
 
 // Relay relays the http requests.
 func (r *Replay) Relay(method string, uri string, header http.Header, body []byte) (matches bool) {
-	if header.Get("X-Httpcap-Replay") == "true" {
-		return false
-	}
-
 	if !r.Matches(method, uri, header) {
 		return false
 	}
@@ -220,19 +216,23 @@ func (r *Replay) Matches(method string, uri string, headers http.Header) bool {
 	return false
 }
 
-// requestRelayer defines the func prototype to replay a request.
+// requestReplayer defines the func prototype to replay a request.
 // return -1: no relays defined, or number of replays applied.
-type requestRelayer func(method, requestURI string, headers http.Header, body []byte) int
+type requestReplayer func(method, requestURI string, headers http.Header, body []byte) int
 
-func (c *Conf) createRequestReplayer() requestRelayer {
+func (c *Conf) createRequestReplayer() requestReplayer {
 	if len(c.Relays) == 0 {
 		return func(_, _ string, _ http.Header, _ []byte) int { return -1 }
 	}
 
-	return func(method, requestURI string, headers http.Header, body []byte) int {
+	return func(method, requestURI string, header http.Header, body []byte) int {
+		if header.Get("X-Httpcap-Replay") == "true" {
+			return 1
+		}
+
 		found := 0
 		for _, relay := range c.Relays {
-			if relay.Relay(method, requestURI, headers, body) {
+			if relay.Relay(method, requestURI, header, body) {
 				found++
 			}
 		}

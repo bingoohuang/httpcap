@@ -28,9 +28,9 @@ type (
 
 	// RequestPacketReader reads http request packet.
 	RequestPacketReader struct {
-		buf     *bufio.Reader
-		relayer requestRelayer
-		conf    *Conf
+		buf      *bufio.Reader
+		replayer requestReplayer
+		conf     *Conf
 	}
 
 	// ResponsePacketReader reads http response packet.
@@ -40,9 +40,9 @@ type (
 	}
 	// Req is the rsp processor.
 	Req struct {
-		Val     *http.Request
-		relayer requestRelayer
-		conf    *Conf
+		Val      *http.Request
+		replayer requestReplayer
+		conf     *Conf
 	}
 	// Rsp is the rsp processor.
 	Rsp struct {
@@ -67,7 +67,7 @@ func (r Req) Process() {
 	log.Printf("{PRE}Request: %s", printRequest(req))
 
 	body, bodyLen, err := parseBody(req.Header, req.Body, true)
-	relayCount := r.relayer(req.Method, req.RequestURI, req.Header, body)
+	relayCount := r.replayer(req.Method, req.RequestURI, req.Header, body)
 
 	if relayCount != 0 {
 		log.Printf("{PRE}Body size: %d, body: %s, error: %v", bodyLen, body, err)
@@ -88,7 +88,7 @@ func (r *RequestPacketReader) Read() (PacketProcessor, error) {
 		return nil, err
 	}
 
-	return &Req{Val: req, relayer: r.relayer, conf: r.conf}, nil
+	return &Req{Val: req, replayer: r.replayer, conf: r.conf}, nil
 }
 
 func (r *ResponsePacketReader) Read() (PacketProcessor, error) {

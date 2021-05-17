@@ -13,23 +13,23 @@ import (
 // httpStreamFactory implements tcpassembly.StreamFactory.
 type httpStreamFactory struct {
 	bpf       string
-	replayer  requestRelayer
+	replayer  requestReplayer
 	conf      *Conf
 	printBody bool
 }
 
 // httpStream will handle the actual decoding of http requests.
 type httpStream struct {
-	r       tcpreader.ReaderStream
-	bpf     string
-	relayer requestRelayer
+	r        tcpreader.ReaderStream
+	bpf      string
+	replayer requestReplayer
 }
 
 func (h *httpStreamFactory) New(netFlow, tcpFlow gopacket.Flow) tcpassembly.Stream {
 	hs := &httpStream{
-		bpf:     fmt.Sprintf("%d", h.bpf),
-		r:       tcpreader.NewReaderStream(),
-		relayer: h.replayer,
+		bpf:      fmt.Sprintf("%d", h.bpf),
+		r:        tcpreader.NewReaderStream(),
+		replayer: h.replayer,
 	}
 	go hs.run(netFlow, tcpFlow, h.conf, h.printBody) // Important... we must guarantee that data from the reader stream is read.
 
@@ -49,7 +49,7 @@ func (h *httpStream) run(netFlow, tcpFlow gopacket.Flow, conf *Conf, printBody b
 	if string(peek) == "HTTP/" {
 		resolver = &ResponsePacketReader{buf: buf, printBody: printBody}
 	} else {
-		resolver = &RequestPacketReader{buf: buf, relayer: h.relayer, conf: conf}
+		resolver = &RequestPacketReader{buf: buf, replayer: h.replayer, conf: conf}
 	}
 
 	for {
