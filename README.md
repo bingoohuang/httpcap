@@ -1,5 +1,7 @@
 # httpcap
 
+please goto https://github.com/gobars/httpdump
+
 http request/response recorder based on gopacket(libpcap).
 
 ## install libpcap:
